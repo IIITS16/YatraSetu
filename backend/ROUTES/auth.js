@@ -250,21 +250,39 @@ router.post("/logout", requireAuth, async (req, res) => {
 });
 
 router.get("/me", requireAuth, async (req, res) => {
-  res.json({
-    success: true,
-    user: {
-      id: req.user.id,
-      phone: req.user.phone,
-      email: req.user.email,
-      role: req.user.role,
-      name: req.user.name,
-      language: req.user.language,
-      avatar_url: req.user.avatar_url,
-      created_at: req.user.created_at,
-      updated_at: req.user.updated_at,
-      last_login_at: req.user.last_login_at,
-    },
-  });
+  try {
+    const statsResult = await pool.query(`
+      SELECT 
+        COUNT(*)::int as total,
+        COALESCE(SUM(CASE WHEN status = 'valid' THEN 1 ELSE 0 END), 0)::int as valid_count,
+        COALESCE(SUM(CASE WHEN status = 'invalid' THEN 1 ELSE 0 END), 0)::int as invalid_count,
+        COALESCE(SUM(CASE WHEN status IN ('pending', 'Under review') THEN 1 ELSE 0 END), 0)::int as pending_count
+      FROM reports 
+      WHERE user_id = $1
+    `, [req.user.id]);
+
+    const stats = statsResult.rows[0];
+
+    res.json({
+      success: true,
+      user: {
+        id: req.user.id,
+        phone: req.user.phone,
+        email: req.user.email,
+        role: req.user.role,
+        name: req.user.name,
+        language: req.user.language,
+        avatar_url: req.user.avatar_url,
+        created_at: req.user.created_at,
+        updated_at: req.user.updated_at,
+        last_login_at: req.user.last_login_at,
+        stats: stats,
+      },
+    });
+  } catch (err) {
+    console.error("Fetch me error:", err);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
 });
 
 router.put("/profile", requireAuth, async (req, res) => {

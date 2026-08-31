@@ -153,6 +153,32 @@ export function Profile() {
         </div>
       </div>
 
+      {/* Travel & Report Statistics */}
+      <div className="mt-8 rounded-2xl border bg-white p-6 shadow-sm">
+        <h3 className="text-lg font-bold text-ink">My Report Statistics</h3>
+        <p className="mt-1 text-sm text-slate-500">
+          Track the status of concerns you've reported.
+        </p>
+        <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <div className="rounded-xl bg-slate-50 p-4 text-center">
+            <p className="text-3xl font-bold text-slate-700">{user?.stats?.total || 0}</p>
+            <p className="mt-1 text-xs font-semibold uppercase text-slate-500">Total Reports</p>
+          </div>
+          <div className="rounded-xl bg-amber-50 p-4 text-center border border-amber-100">
+            <p className="text-3xl font-bold text-amber-600">{user?.stats?.pending_count || 0}</p>
+            <p className="mt-1 text-xs font-semibold uppercase text-amber-700">Pending Review</p>
+          </div>
+          <div className="rounded-xl bg-teal-50 p-4 text-center border border-teal-100">
+            <p className="text-3xl font-bold text-teal-600">{user?.stats?.valid_count || 0}</p>
+            <p className="mt-1 text-xs font-semibold uppercase text-teal-700">Verified True</p>
+          </div>
+          <div className="rounded-xl bg-rose-50 p-4 text-center border border-rose-100">
+            <p className="text-3xl font-bold text-rose-600">{user?.stats?.invalid_count || 0}</p>
+            <p className="mt-1 text-xs font-semibold uppercase text-rose-700">Verified False</p>
+          </div>
+        </div>
+      </div>
+
       {/* Danger Zone */}
       <div className="mt-8 rounded-2xl border border-rose-200 bg-rose-50 p-6">
         <h3 className="flex items-center gap-2 text-lg font-bold text-rose-700">
