@@ -10,6 +10,8 @@ export const businesses = [
     status: "Verified",
     color: "bg-teal-100 text-teal-700",
     category: "hotel",
+    lat: 26.9535,
+    lng: 75.8513,
   },
   {
     name: "The Lalit Jaipur",
@@ -19,6 +21,8 @@ export const businesses = [
     status: "Verified",
     color: "bg-teal-100 text-teal-700",
     category: "hotel",
+    lat: 26.9196,
+    lng: 75.7878,
   },
   {
     name: "Raj Palace Heritage",
@@ -28,6 +32,8 @@ export const businesses = [
     status: "Verified",
     color: "bg-teal-100 text-teal-700",
     category: "hotel",
+    lat: 26.9260,
+    lng: 75.8050,
   },
   {
     name: "Sunrise Guest House",
@@ -37,6 +43,8 @@ export const businesses = [
     status: "Unverified",
     color: "bg-rose-100 text-rose-700",
     category: "hotel",
+    lat: 26.9157,
+    lng: 75.8005,
   },
 
   // Restaurants
@@ -48,6 +56,8 @@ export const businesses = [
     status: "Verified",
     color: "bg-teal-100 text-teal-700",
     category: "restaurant",
+    lat: 26.9120,
+    lng: 75.8010,
   },
   {
     name: "Laxmi Mishthan Bhandar (LMB)",
@@ -57,6 +67,8 @@ export const businesses = [
     status: "Verified",
     color: "bg-teal-100 text-teal-700",
     category: "restaurant",
+    lat: 26.9218,
+    lng: 75.8082,
   },
   {
     name: "Chokhi Dhani",
@@ -66,6 +78,8 @@ export const businesses = [
     status: "Verified",
     color: "bg-teal-100 text-teal-700",
     category: "restaurant",
+    lat: 26.8100,
+    lng: 75.8200,
   },
   {
     name: "Highway Dhaba 99",
@@ -75,6 +89,8 @@ export const businesses = [
     status: "Unverified",
     color: "bg-rose-100 text-rose-700",
     category: "restaurant",
+    lat: 26.8450,
+    lng: 75.7300,
   },
 
   // Guides
@@ -86,6 +102,8 @@ export const businesses = [
     status: "Verified",
     color: "bg-teal-100 text-teal-700",
     category: "guide",
+    lat: 26.9855,
+    lng: 75.8513,
   },
   {
     name: "Rajesh Kumar — Govt. Guide",
@@ -95,6 +113,8 @@ export const businesses = [
     status: "Verified",
     color: "bg-teal-100 text-teal-700",
     category: "guide",
+    lat: 26.9239,
+    lng: 75.8267,
   },
   {
     name: "Fort Explorers Jaipur",
@@ -104,6 +124,8 @@ export const businesses = [
     status: "Verified",
     color: "bg-teal-100 text-teal-700",
     category: "guide",
+    lat: 26.9388,
+    lng: 75.8156,
   },
 
   // Tour Operators & Transport
@@ -115,6 +137,8 @@ export const businesses = [
     status: "Verified",
     color: "bg-teal-100 text-teal-700",
     category: "transport",
+    lat: 26.9124,
+    lng: 75.7873,
   },
   {
     name: "Royal Rajasthan Travels",
@@ -124,6 +148,8 @@ export const businesses = [
     status: "Verified",
     color: "bg-teal-100 text-teal-700",
     category: "transport",
+    lat: 26.9196,
+    lng: 75.7880,
   },
   {
     name: "Quick Ride Auto",
@@ -133,6 +159,8 @@ export const businesses = [
     status: "Unverified",
     color: "bg-rose-100 text-rose-700",
     category: "transport",
+    lat: 26.9220,
+    lng: 75.7860,
   },
 
   // Shops
@@ -144,6 +172,8 @@ export const businesses = [
     status: "Verified",
     color: "bg-teal-100 text-teal-700",
     category: "shop",
+    lat: 26.9155,
+    lng: 75.8010,
   },
   {
     name: "Anokhi Museum Shop",
@@ -153,6 +183,8 @@ export const businesses = [
     status: "Verified",
     color: "bg-teal-100 text-teal-700",
     category: "shop",
+    lat: 26.9830,
+    lng: 75.8490,
   },
 ];
 

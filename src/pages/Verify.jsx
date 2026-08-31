@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   CircleAlert,
   Hotel,
+  LocateFixed,
   MapPin,
   ScanLine,
   Search,
@@ -12,6 +13,7 @@ import {
   UtensilsCrossed,
   Users,
   Car,
+  X,
 } from "lucide-react";
 import { businesses } from "../data";
 
@@ -24,22 +26,99 @@ const categories = [
   { key: "shop", label: "Shops", icon: ShoppingBag },
 ];
 
+const rangeOptions = [
+  { km: 2, label: "2 km" },
+  { km: 5, label: "5 km" },
+  { km: 10, label: "10 km" },
+  { km: 25, label: "25 km" },
+];
+
+// Haversine formula — distance in km between two GPS points
+function getDistanceKm(lat1, lng1, lat2, lng2) {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 export function Verify() {
   const [query, setQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
 
-  const filtered = businesses.filter((b) => {
-    const matchesQuery =
-      b.name.toLowerCase().includes(query.toLowerCase()) ||
-      b.id.toLowerCase().includes(query.toLowerCase()) ||
-      b.place.toLowerCase().includes(query.toLowerCase());
-    const matchesCategory =
-      activeCategory === "all" || b.category === activeCategory;
-    return matchesQuery && matchesCategory;
-  });
+  // Near Me state
+  const [userLocation, setUserLocation] = useState(null);
+  const [locating, setLocating] = useState(false);
+  const [nearMeActive, setNearMeActive] = useState(false);
+  const [rangeKm, setRangeKm] = useState(5);
+  const [locationError, setLocationError] = useState("");
 
-  const verifiedCount = filtered.filter((b) => b.status === "Verified").length;
-  const unverifiedCount = filtered.filter((b) => b.status === "Unverified").length;
+  function handleNearMe() {
+    if (nearMeActive) {
+      // Turn off Near Me
+      setNearMeActive(false);
+      setUserLocation(null);
+      return;
+    }
+
+    if (!navigator.geolocation) {
+      setLocationError("Location is not supported by your browser.");
+      return;
+    }
+
+    setLocating(true);
+    setLocationError("");
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setUserLocation({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        });
+        setNearMeActive(true);
+        setLocating(false);
+      },
+      () => {
+        setLocationError("Unable to get your location. Please allow location permission.");
+        setLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  }
+
+  // Build filtered + distance-annotated list
+  let results = businesses
+    .map((b) => {
+      const distance =
+        userLocation && nearMeActive
+          ? getDistanceKm(userLocation.lat, userLocation.lng, b.lat, b.lng)
+          : null;
+      return { ...b, distance };
+    })
+    .filter((b) => {
+      const matchesQuery =
+        b.name.toLowerCase().includes(query.toLowerCase()) ||
+        b.id.toLowerCase().includes(query.toLowerCase()) ||
+        b.place.toLowerCase().includes(query.toLowerCase());
+      const matchesCategory =
+        activeCategory === "all" || b.category === activeCategory;
+      const matchesRange =
+        !nearMeActive || (b.distance !== null && b.distance <= rangeKm);
+      return matchesQuery && matchesCategory && matchesRange;
+    });
+
+  // Sort by distance when Near Me is active
+  if (nearMeActive) {
+    results.sort((a, b) => (a.distance ?? 999) - (b.distance ?? 999));
+  }
+
+  const verifiedCount = results.filter((b) => b.status === "Verified").length;
+  const unverifiedCount = results.filter((b) => b.status === "Unverified").length;
 
   return (
     <div className="page-enter mx-auto max-w-3xl">
@@ -60,6 +139,54 @@ export function Verify() {
           className="w-full rounded-xl border border-slate-200 bg-white py-3.5 pl-12 pr-4 outline-none ring-sea transition focus:ring-2"
         />
       </div>
+
+      {/* Near Me Button + Range Selector */}
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <button
+          onClick={handleNearMe}
+          disabled={locating}
+          className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition disabled:opacity-60 ${
+            nearMeActive
+              ? "bg-sea text-white"
+              : "border border-teal-200 bg-teal-50 text-sea hover:bg-teal-100"
+          }`}
+        >
+          {locating ? (
+            "Locating..."
+          ) : nearMeActive ? (
+            <>
+              <LocateFixed size={16} /> Near Me On
+              <X size={14} className="ml-1 opacity-70" />
+            </>
+          ) : (
+            <>
+              <LocateFixed size={16} /> Near Me
+            </>
+          )}
+        </button>
+
+        {nearMeActive && (
+          <div className="flex items-center gap-1.5">
+            {rangeOptions.map((opt) => (
+              <button
+                key={opt.km}
+                onClick={() => setRangeKm(opt.km)}
+                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+                  rangeKm === opt.km
+                    ? "bg-ink text-white"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {locationError && (
+        <p className="mt-2 text-sm text-rose-600">{locationError}</p>
+      )}
 
       {/* Category Filters */}
       <div className="mt-4 flex flex-wrap gap-2">
@@ -89,11 +216,16 @@ export function Verify() {
             {unverifiedCount} unverified
           </span>
         )}
+        {nearMeActive && (
+          <span className="rounded-full bg-blue-50 px-2 py-0.5 font-semibold text-blue-700">
+            within {rangeKm} km
+          </span>
+        )}
       </div>
 
       {/* Results */}
       <div className="mt-4 space-y-3">
-        {filtered.map((b) => (
+        {results.map((b) => (
           <article key={b.id} className="rounded-2xl border bg-white p-5 shadow-sm">
             <div className="flex gap-4">
               <div
@@ -120,17 +252,28 @@ export function Verify() {
                 <p className="mt-1 text-sm text-slate-500">
                   {b.type} · {b.id}
                 </p>
-                <p className="mt-2 flex items-center gap-1 text-sm text-slate-600">
-                  <MapPin size={15} />
-                  {b.place}
-                </p>
+                <div className="mt-2 flex flex-wrap items-center gap-3">
+                  <p className="flex items-center gap-1 text-sm text-slate-600">
+                    <MapPin size={15} />
+                    {b.place}
+                  </p>
+                  {b.distance !== null && (
+                    <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-bold text-blue-700">
+                      {b.distance < 1
+                        ? `${Math.round(b.distance * 1000)} m away`
+                        : `${b.distance.toFixed(1)} km away`}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           </article>
         ))}
-        {!filtered.length && (
+        {!results.length && (
           <p className="rounded-xl bg-white p-6 text-center text-slate-500">
-            No registered service found. Check the spelling or try a different category.
+            {nearMeActive
+              ? `No services found within ${rangeKm} km. Try increasing the range.`
+              : "No registered service found. Check the spelling or try a different category."}
           </p>
         )}
       </div>
