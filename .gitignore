@@ -1,0 +1,8 @@
+backend/node_modules/
+backend/.env
+backend/.env.local
+node_modules
+*.log
+npm-debug.log*
+.DS_Store
+.vscode/
