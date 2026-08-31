@@ -83,6 +83,15 @@ export function Layout({ children }) {
                 {label}
               </NavLink>
             ))}
+            {token && (
+              <button
+                onClick={() => { setOpen(false); logout(); }}
+                className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium text-rose-600"
+              >
+                <LogOut size={18} />
+                Logout
+              </button>
+            )}
           </div>
         )}
       </header>
