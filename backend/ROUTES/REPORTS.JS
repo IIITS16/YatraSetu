@@ -1,13 +1,18 @@
 const express = require("express");
 const pool = require("../db");
+const { requireAuth } = require("../middleware/auth");
 
 const router = express.Router();
 
-router.get("/", async (_req, res) => {
+// Reports are private to the authenticated account that created them.
+router.use(requireAuth);
+
+router.get("/", async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT
         id,
+        user_id,
         concern_type,
         business_name,
         description,
@@ -16,8 +21,9 @@ router.get("/", async (_req, res) => {
         created_at,
         status
       FROM reports
+      WHERE user_id = $1
       ORDER BY created_at DESC
-    `);
+    `, [req.user.id]);
 
     res.json({
       success: true,
@@ -53,6 +59,7 @@ router.post("/", async (req, res) => {
     const result = await pool.query(
       `
       INSERT INTO reports (
+        user_id,
         concern_type,
         business_name,
         description,
@@ -60,9 +67,10 @@ router.post("/", async (req, res) => {
         longitude,
         status
       )
-      VALUES ($1, $2, $3, $4, $5, 'Under review')
+      VALUES ($1, $2, $3, $4, $5, $6, 'Under review')
       RETURNING
         id,
+        user_id,
         concern_type,
         business_name,
         description,
@@ -71,7 +79,7 @@ router.post("/", async (req, res) => {
         created_at,
         status
       `,
-      [concern_type, business_name || null, description, lat, lng]
+      [req.user.id, concern_type, business_name || null, description, lat, lng]
     );
 
     res.status(201).json({

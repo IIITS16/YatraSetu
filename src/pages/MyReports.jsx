@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { API_BASE } from "../config";
+import { useAuth } from "../auth";
 
 export function MyReports() {
+  const { token } = useAuth();
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -11,7 +13,9 @@ export function MyReports() {
 
     async function loadReports() {
       try {
-        const response = await fetch(`${API_BASE}/reports`);
+        const response = await fetch(`${API_BASE}/reports`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         const data = await response.json();
 
         if (!response.ok) {
@@ -37,7 +41,7 @@ export function MyReports() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [token]);
 
   return (
     <div className="page-enter mx-auto max-w-3xl">

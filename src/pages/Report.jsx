@@ -2,8 +2,10 @@ import { useState } from "react";
 import { CheckCircle2, LocateFixed, Upload } from "lucide-react";
 import { Link } from "react-router-dom";
 import { API_BASE } from "../config";
+import { useAuth } from "../auth";
 
 export function Report() {
+  const { token } = useAuth();
   const [location, setLocation] = useState(null);
   const [concern, setConcern] = useState("");
   const [business, setBusiness] = useState("");
@@ -51,7 +53,10 @@ export function Report() {
     try {
       const response = await fetch(`${API_BASE}/reports`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
           concern_type: concern,
           business_name: business,

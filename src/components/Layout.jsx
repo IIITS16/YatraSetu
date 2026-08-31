@@ -8,11 +8,14 @@ import {
   House,
   Menu,
   ShieldAlert,
+  LogOut,
 } from "lucide-react";
 import { Logo } from "./Logo";
+import { useAuth } from "../auth";
 
 export function Layout({ children }) {
   const [open, setOpen] = useState(false);
+  const { token, user, logout } = useAuth();
   const links = [
     ["/", "Home", House],
     ["/verify", "Verify", BadgeCheck],
@@ -41,6 +44,15 @@ export function Layout({ children }) {
             ))}
           </nav>
           <div className="flex items-center gap-2">
+            {token && (
+              <button
+                onClick={logout}
+                className="hidden items-center gap-2 rounded-full border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 md:flex"
+              >
+                <LogOut size={16} />
+                Logout
+              </button>
+            )}
             <button
               className="rounded-full p-2 text-slate-500 hover:bg-slate-100"
               aria-label="Notifications"
@@ -54,7 +66,7 @@ export function Layout({ children }) {
               <Menu size={22} />
             </button>
             <div className="hidden h-9 w-9 place-items-center rounded-full bg-saffron/15 text-sm font-bold text-amber-700 sm:grid">
-              MS
+              {user?.phone ? user.phone.slice(-2) : "MS"}
             </div>
           </div>
         </div>

@@ -3,6 +3,8 @@ const express = require("express");
 const cors = require("cors");
 const pool = require("./db");
 const reportsRouter = require("./routes/reports");
+const authRouter = require("./routes/auth");
+const { migrate } = require("./migrate");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -41,6 +43,7 @@ app.get("/api/test-db", async (req, res) => {
 
 // Reports API
 app.use("/api/reports", reportsRouter);
+app.use("/api/auth", authRouter);
 
 // 404
 app.use((req, res) => {
@@ -50,7 +53,12 @@ app.use((req, res) => {
   });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`YatraSetu backend running on http://localhost:${PORT}`);
-});
+// Start only after required database tables have been created.
+migrate()
+  .then(() => app.listen(PORT, () => {
+    console.log(`YatraSetu backend running on http://localhost:${PORT}`);
+  }))
+  .catch((error) => {
+    console.error("Unable to start backend:", error.message);
+    process.exit(1);
+  });

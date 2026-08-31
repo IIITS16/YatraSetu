@@ -8,4 +8,14 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode><BrowserRouter><App /></BrowserRouter></React.StrictMode>,
 )
 
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js'))
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', async () => {
+    if (import.meta.env.PROD) {
+      await navigator.serviceWorker.register('/sw.js')
+      return
+    }
+
+    const registrations = await navigator.serviceWorker.getRegistrations()
+    await Promise.all(registrations.map((registration) => registration.unregister()))
+  })
+}

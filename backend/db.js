@@ -2,8 +2,11 @@
 
 const { Pool } = require("pg");
 const dotenv = require("dotenv");
+const path = require("path");
 
-dotenv.config();
+dotenv.config({
+  path: path.resolve(__dirname, ".env"),
+});
 
 if (!process.env.DB_PASSWORD) {
   console.error("ERROR: DB_PASSWORD is missing from .env");
