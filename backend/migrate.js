@@ -5,6 +5,7 @@ async function migrate() {
     CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY, phone TEXT UNIQUE, email TEXT UNIQUE,
       role TEXT NOT NULL DEFAULT 'tourist', name TEXT,
+      language TEXT DEFAULT 'English', avatar_url TEXT,
       token_version INTEGER NOT NULL DEFAULT 0, last_login_at TIMESTAMPTZ,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
@@ -21,6 +22,9 @@ async function migrate() {
     )
   `);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_auth_otps_identifier_active ON auth_otps (login_identifier, created_at DESC)`);
+
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS language TEXT DEFAULT 'English'`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT`);
 
   await pool.query(`ALTER TABLE reports ADD COLUMN IF NOT EXISTS user_id INTEGER`);
   const unassigned = await pool.query("SELECT COUNT(*)::int AS count FROM reports WHERE user_id IS NULL");

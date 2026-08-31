@@ -258,11 +258,50 @@ router.get("/me", requireAuth, async (req, res) => {
       email: req.user.email,
       role: req.user.role,
       name: req.user.name,
+      language: req.user.language,
+      avatar_url: req.user.avatar_url,
       created_at: req.user.created_at,
       updated_at: req.user.updated_at,
       last_login_at: req.user.last_login_at,
     },
   });
+});
+
+router.put("/profile", requireAuth, async (req, res) => {
+  try {
+    const { name, language } = req.body;
+    const result = await pool.query(
+      "UPDATE users SET name = $1, language = $2, updated_at = NOW() WHERE id = $3 RETURNING id, name, language",
+      [name, language, req.user.id]
+    );
+    res.json({ success: true, user: result.rows[0] });
+  } catch (err) {
+    console.error("Update profile error:", err);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+});
+
+router.delete("/account", requireAuth, async (req, res) => {
+  try {
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      // First delete all reports belonging to the user
+      await client.query("DELETE FROM reports WHERE user_id = $1", [req.user.id]);
+      // Then delete the user
+      await client.query("DELETE FROM users WHERE id = $1", [req.user.id]);
+      await client.query("COMMIT");
+      res.json({ success: true, message: "Account deleted successfully" });
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    console.error("Delete account error:", err);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
 });
 
 module.exports = router;

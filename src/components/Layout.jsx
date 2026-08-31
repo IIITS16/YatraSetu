@@ -9,6 +9,7 @@ import {
   Menu,
   ShieldAlert,
   LogOut,
+  User,
 } from "lucide-react";
 import { Logo } from "./Logo";
 import { useAuth } from "../auth";
@@ -22,6 +23,7 @@ export function Layout({ children }) {
     ["/scan-bill", "Scan bill", FileScan],
     ["/report", "Report", ShieldAlert],
     ["/my-reports", "My reports", ClipboardList],
+    ["/profile", "Profile", User],
   ];
 
   return (
@@ -65,9 +67,13 @@ export function Layout({ children }) {
             >
               <Menu size={22} />
             </button>
-            <div className="hidden h-9 w-9 place-items-center rounded-full bg-saffron/15 text-sm font-bold text-amber-700 sm:grid">
-              {user?.phone ? user.phone.slice(-2) : "MS"}
-            </div>
+            <NavLink to="/profile" className="hidden h-9 w-9 place-items-center overflow-hidden rounded-full bg-saffron/15 text-sm font-bold text-amber-700 sm:grid hover:ring-2 hover:ring-sea transition">
+              {user?.avatar_url ? (
+                <img src={user.avatar_url} alt="Profile" className="h-full w-full object-cover" />
+              ) : (
+                user?.name ? user.name.slice(0, 2).toUpperCase() : (user?.phone ? user.phone.slice(-2) : "ME")
+              )}
+            </NavLink>
           </div>
         </div>
         {open && (

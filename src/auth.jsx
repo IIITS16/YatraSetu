@@ -70,6 +70,9 @@ export function AuthProvider({ children }) {
         setToken("");
         setUser(null);
       },
+      updateUser(updatedFields) {
+        setUser((prev) => (prev ? { ...prev, ...updatedFields } : null));
+      },
     }),
     [token, user, loading]
   );

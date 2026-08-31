@@ -17,7 +17,7 @@ async function requireAuth(req, res, next) {
 
     const payload = jwt.verify(token, secret);
     const userResult = await pool.query(
-      "SELECT id, phone, email, role, name, token_version, created_at, updated_at, last_login_at FROM users WHERE id = $1",
+      "SELECT id, phone, email, role, name, language, avatar_url, token_version, created_at, updated_at, last_login_at FROM users WHERE id = $1",
       [payload.sub]
     );
 

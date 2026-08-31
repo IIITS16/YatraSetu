@@ -9,6 +9,7 @@ import { Report } from "./pages/Report";
 import { ScanBill } from "./pages/ScanBill";
 import { Verify } from "./pages/Verify";
 import { VerifyOtp } from "./pages/VerifyOtp";
+import { Profile } from "./pages/Profile";
 
 function ProtectedApp() {
   return (
@@ -20,6 +21,7 @@ function ProtectedApp() {
           <Route path="/scan-bill" element={<ScanBill />} />
           <Route path="/report" element={<Report />} />
           <Route path="/my-reports" element={<MyReports />} />
+          <Route path="/profile" element={<Profile />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AuthGuard>
