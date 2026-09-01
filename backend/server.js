@@ -1,8 +1,10 @@
 const express = require("express");
 const cors = require("cors");
+require("dotenv").config();
 const pool = require("./db");
 const reportsRouter = require("./routes/reports");
 const authRouter = require("./routes/auth");
+const inspectorRouter = require("./routes/inspector");
 const { migrate } = require("./migrate");
 
 const app = express();
@@ -46,6 +48,7 @@ app.get("/api/test-db", async (req, res) => {
 // API routes
 app.use("/api/reports", reportsRouter);
 app.use("/api/auth", authRouter);
+app.use("/api/inspector", inspectorRouter);
 
 // 404
 app.use((req, res) => {

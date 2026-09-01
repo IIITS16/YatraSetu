@@ -44,7 +44,12 @@ export function VerifyOtp() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.message || "OTP verification failed");
       await login(data.token, data.user);
-      navigate("/", { replace: true });
+      // Navigate to correct dashboard based on role
+      if (data.user?.role === "inspector" || data.user?.role === "government") {
+        navigate("/inspector", { replace: true });
+      } else {
+        navigate("/", { replace: true });
+      }
     } catch (err) {
       setError(err.message);
     } finally {

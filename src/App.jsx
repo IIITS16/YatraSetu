@@ -1,7 +1,8 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AuthGuard } from "./components/AuthGuard";
 import { Layout } from "./components/Layout";
-import { AuthProvider } from "./auth";
+import { InspectorLayout } from "./components/InspectorLayout";
+import { AuthProvider, useAuth } from "./auth";
 import { Home } from "./pages/Home";
 import { Login } from "./pages/Login";
 import { MyReports } from "./pages/MyReports";
@@ -10,8 +11,25 @@ import { ScanBill } from "./pages/ScanBill";
 import { Verify } from "./pages/Verify";
 import { VerifyOtp } from "./pages/VerifyOtp";
 import { Profile } from "./pages/Profile";
+import { InspectorDashboard } from "./pages/inspector/InspectorDashboard";
 
 function ProtectedApp() {
+  const { user } = useAuth();
+
+  if (user?.role === "inspector" || user?.role === "government") {
+    return (
+      <InspectorLayout>
+        <AuthGuard>
+          <Routes>
+            <Route path="/" element={<Navigate to="/inspector" replace />} />
+            <Route path="/inspector" element={<InspectorDashboard />} />
+            <Route path="*" element={<Navigate to="/inspector" replace />} />
+          </Routes>
+        </AuthGuard>
+      </InspectorLayout>
+    );
+  }
+
   return (
     <Layout>
       <AuthGuard>
