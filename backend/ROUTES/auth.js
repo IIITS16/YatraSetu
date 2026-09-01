@@ -255,9 +255,9 @@ router.get("/me", requireAuth, async (req, res) => {
     const statsResult = await pool.query(`
       SELECT 
         COUNT(*)::int as total,
-        COALESCE(SUM(CASE WHEN status = 'valid' THEN 1 ELSE 0 END), 0)::int as valid_count,
+        COALESCE(SUM(CASE WHEN status IN ('valid', 'resolved') THEN 1 ELSE 0 END), 0)::int as valid_count,
         COALESCE(SUM(CASE WHEN status = 'invalid' THEN 1 ELSE 0 END), 0)::int as invalid_count,
-        COALESCE(SUM(CASE WHEN status IN ('pending', 'Under review') THEN 1 ELSE 0 END), 0)::int as pending_count
+        COALESCE(SUM(CASE WHEN status IN ('new', 'review', 'investigating', 'escalated', 'pending', 'Under review') THEN 1 ELSE 0 END), 0)::int as pending_count
       FROM reports 
       WHERE user_id = $1
     `, [req.user.id]);
@@ -270,11 +270,11 @@ router.get("/me", requireAuth, async (req, res) => {
         id: req.user.id,
         phone: req.user.phone,
         email: req.user.email,
-        role: req.user.role,
         name: req.user.name,
-        region: req.user.region,
+        role: req.user.role,
         language: req.user.language,
         avatar_url: req.user.avatar_url,
+        region: req.user.region,
         created_at: req.user.created_at,
         updated_at: req.user.updated_at,
         last_login_at: req.user.last_login_at,
