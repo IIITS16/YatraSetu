@@ -25,9 +25,30 @@ async function migrate() {
 
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS language TEXT DEFAULT 'English'`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS region TEXT`);
+  
+  const inspectors = [
+    { email: 'mohakcse12511069@iiitsonepat.ac.in', name: 'Mohak', region: 'Jaipur South' },
+    { email: 'akshatcse12511007@iiitsonepat.ac.in', name: 'Akshat', region: 'Jaipur North' },
+    { email: 'yashcse12511118@iiitsonepat.ac.in', name: 'Yash', region: 'Amer' },
+    { email: 'devcse12511030@iiitsonepat.ac.in', name: 'Dev', region: 'Jaipur East' },
+    { email: 'ishantcse12511069@iiitsonepat.ac.in', name: 'Ishant', region: 'Jaipur West' }
+  ];
+
+  for (const inspector of inspectors) {
+    await pool.query(`
+      INSERT INTO users (email, name, role, region)
+      VALUES ($1, $2, 'inspector', $3)
+      ON CONFLICT (email) DO UPDATE SET 
+        name = EXCLUDED.name,
+        role = 'inspector',
+        region = EXCLUDED.region
+    `, [inspector.email, inspector.name, inspector.region]);
+  }
 
   await pool.query(`ALTER TABLE reports ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'pending'`);
   await pool.query(`ALTER TABLE reports ADD COLUMN IF NOT EXISTS user_id INTEGER`);
+  await pool.query(`ALTER TABLE reports ADD COLUMN IF NOT EXISTS region TEXT`);
   const unassigned = await pool.query("SELECT COUNT(*)::int AS count FROM reports WHERE user_id IS NULL");
 
   // Keep reports created before authentication, while all new reports use req.user.id.
