@@ -32,7 +32,7 @@ async function migrate() {
     { email: 'akshatcse12511007@iiitsonepat.ac.in', name: 'Akshat', region: 'Jaipur North' },
     { email: 'yashcse12511118@iiitsonepat.ac.in', name: 'Yash', region: 'Amer' },
     { email: 'devcse12511030@iiitsonepat.ac.in', name: 'Dev', region: 'Jaipur East' },
-    { email: 'ishantcse12511069@iiitsonepat.ac.in', name: 'Ishant', region: 'Jaipur West' }
+    { email: 'ishantcse12511064@iiitsonepat.ac.in', name: 'Ishant', region: 'Jaipur West' }
   ];
 
   for (const inspector of inspectors) {
