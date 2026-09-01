@@ -162,7 +162,7 @@ router.post("/verify-otp", async (req, res) => {
 
     const existingUserResult = await pool.query(
       `
-      SELECT id, phone, email, role, name, created_at, updated_at, last_login_at, token_version
+      SELECT id, phone, email, role, name, region, created_at, updated_at, last_login_at, token_version
       FROM users
       WHERE ($1::text IS NOT NULL AND phone = $1)
          OR ($2::text IS NOT NULL AND email = $2)
@@ -185,7 +185,7 @@ router.post("/verify-otp", async (req, res) => {
           last_login_at = NOW(),
           updated_at = NOW()
         WHERE id = $5
-        RETURNING id, phone, email, role, name, created_at, updated_at, last_login_at, token_version
+        RETURNING id, phone, email, role, name, region, created_at, updated_at, last_login_at, token_version
         `,
         [phone, email, role, name, existingUserResult.rows[0].id]
       );
@@ -195,7 +195,7 @@ router.post("/verify-otp", async (req, res) => {
         `
         INSERT INTO users (phone, email, role, name, last_login_at, updated_at)
         VALUES ($1, $2, $3, $4, NOW(), NOW())
-        RETURNING id, phone, email, role, name, created_at, updated_at, last_login_at, token_version
+        RETURNING id, phone, email, role, name, region, created_at, updated_at, last_login_at, token_version
         `,
         [phone, email, role, name]
       );
@@ -228,6 +228,7 @@ router.post("/verify-otp", async (req, res) => {
         email: user.email,
         role: user.role,
         name: user.name,
+        region: user.region,
         created_at: user.created_at,
         updated_at: user.updated_at,
         last_login_at: user.last_login_at,
@@ -271,6 +272,7 @@ router.get("/me", requireAuth, async (req, res) => {
         email: req.user.email,
         role: req.user.role,
         name: req.user.name,
+        region: req.user.region,
         language: req.user.language,
         avatar_url: req.user.avatar_url,
         created_at: req.user.created_at,

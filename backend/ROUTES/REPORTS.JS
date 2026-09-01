@@ -41,7 +41,7 @@ router.get("/", async (req, res) => {
 
 router.post("/", async (req, res) => {
   try {
-    const { concern_type, business_name, description, latitude, longitude } =
+    const { concern_type, business_name, region, description, latitude, longitude } =
       req.body;
 
     if (!concern_type || !description) {
@@ -62,24 +62,26 @@ router.post("/", async (req, res) => {
         user_id,
         concern_type,
         business_name,
+        region,
         description,
         latitude,
         longitude,
         status
       )
-      VALUES ($1, $2, $3, $4, $5, $6, 'Under review')
+      VALUES ($1, $2, $3, $4, $5, $6, $7, 'Under review')
       RETURNING
         id,
         user_id,
         concern_type,
         business_name,
+        region,
         description,
         latitude,
         longitude,
         created_at,
         status
       `,
-      [req.user.id, concern_type, business_name || null, description, lat, lng]
+      [req.user.id, concern_type, business_name || null, region || null, description, lat, lng]
     );
 
     res.status(201).json({

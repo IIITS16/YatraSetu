@@ -9,6 +9,7 @@ export function Report() {
   const [location, setLocation] = useState(null);
   const [concern, setConcern] = useState("");
   const [business, setBusiness] = useState("");
+  const [region, setRegion] = useState("");
   const [details, setDetails] = useState("");
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -60,6 +61,7 @@ export function Report() {
         body: JSON.stringify({
           concern_type: concern,
           business_name: business,
+          region: region,
           description: details,
           latitude: location?.latitude ?? null,
           longitude: location?.longitude ?? null,
@@ -136,6 +138,23 @@ export function Report() {
             placeholder="e.g. Saffron Courtyard, Bapu Bazaar"
             className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-3 font-normal outline-none focus:ring-2 focus:ring-sea"
           />
+        </label>
+
+        <label className="block text-sm font-semibold text-ink">
+          Region / Area
+          <select
+            required
+            value={region}
+            onChange={(e) => setRegion(e.target.value)}
+            className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-3 font-normal text-slate-700 outline-none focus:ring-2 focus:ring-sea"
+          >
+            <option value="">Select the region where this occurred</option>
+            <option value="Jaipur South">Jaipur South</option>
+            <option value="Jaipur North">Jaipur North</option>
+            <option value="Jaipur East">Jaipur East</option>
+            <option value="Jaipur West">Jaipur West</option>
+            <option value="Amer">Amer / Old City</option>
+          </select>
         </label>
 
         <label className="block text-sm font-semibold text-ink">
