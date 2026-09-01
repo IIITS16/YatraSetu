@@ -20,9 +20,13 @@ export function InspectorLayout({ children }) {
   const links = [
     ["/inspector", "Dashboard", LayoutDashboard],
     ["/inspector/reports", "Reports", ShieldCheck],
-    ["/inspector/map", "Heat Map", Map],
+    ["/inspector/heatmap", "Heat Map", Map],
     ["/inspector/businesses", "Businesses", Building2],
   ];
+
+  if (user?.role === "government") {
+    links.push(["/inspector/analytics", "Analytics", LayoutDashboard]);
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 pb-20 md:pb-0">
@@ -56,21 +60,33 @@ export function InspectorLayout({ children }) {
               </span>
             </div>
 
-            <button className="rounded-full p-2 text-slate-400 hover:bg-slate-800" aria-label="Notifications">
-              <Bell size={19} />
-            </button>
+            <div className="relative">
+              <button onClick={() => setOpen(!open)} className="rounded-full p-2 text-slate-400 hover:bg-slate-800 relative">
+                <Bell size={19} />
+                <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-rose-500"></span>
+              </button>
+            </div>
             
             <button onClick={() => setOpen(!open)} className="rounded-lg p-2 text-slate-300 md:hidden">
               <Menu size={22} />
             </button>
             
-            <NavLink to="/profile" className="hidden h-9 w-9 place-items-center overflow-hidden rounded-full bg-slate-700 text-sm font-bold text-slate-200 sm:grid hover:ring-2 hover:ring-teal-400 transition">
+            <NavLink to="/profile" className="hidden h-9 w-9 place-items-center overflow-hidden rounded-full bg-slate-700 text-sm font-bold text-slate-200 sm:grid hover:ring-2 hover:ring-teal-400 transition" title="My Profile">
               {user?.avatar_url ? (
                 <img src={user.avatar_url} alt="Profile" className="h-full w-full object-cover" />
               ) : (
                 user?.name ? user.name.slice(0, 2).toUpperCase() : "IN"
               )}
             </NavLink>
+            
+            <button 
+              onClick={logout}
+              className="hidden items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-700 hover:text-white md:flex"
+              title="Logout"
+            >
+              <LogOut size={16} />
+              Logout
+            </button>
           </div>
         </div>
         

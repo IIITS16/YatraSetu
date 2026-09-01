@@ -63,6 +63,49 @@ async function migrate() {
   }
 
   await pool.query(`ALTER TABLE reports ALTER COLUMN user_id SET NOT NULL`);
+  
+  // Phase 2C & 3: Inspector Advanced Features
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS businesses (
+      id SERIAL PRIMARY KEY,
+      name VARCHAR(255) NOT NULL,
+      region VARCHAR(100),
+      base_risk_score INTEGER DEFAULT 0,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS action_history (
+      id SERIAL PRIMARY KEY,
+      report_id INTEGER REFERENCES reports(id) ON DELETE CASCADE,
+      actor_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      action_type VARCHAR(50) NOT NULL,
+      notes TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS alerts (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      region VARCHAR(100),
+      message TEXT NOT NULL,
+      type VARCHAR(50) DEFAULT 'info',
+      is_read BOOLEAN DEFAULT false,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+  `);
+
+  // Add new columns to reports table
+  await pool.query(`ALTER TABLE reports ADD COLUMN IF NOT EXISTS risk_score INTEGER DEFAULT 0`);
+  await pool.query(`ALTER TABLE reports ADD COLUMN IF NOT EXISTS business_id INTEGER REFERENCES businesses(id) ON DELETE SET NULL`);
+  
+  // Phase 2B: Inspector Review columns
+  await pool.query(`ALTER TABLE reports ADD COLUMN IF NOT EXISTS reviewed_by INTEGER REFERENCES users(id) ON DELETE SET NULL`);
+  await pool.query(`ALTER TABLE reports ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ`);
+  await pool.query(`ALTER TABLE reports ADD COLUMN IF NOT EXISTS reviewer_notes TEXT`);
   await pool.query(`
     DO $$ BEGIN
       IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'reports_user_id_fkey') THEN

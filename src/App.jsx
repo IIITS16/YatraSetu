@@ -12,6 +12,11 @@ import { Verify } from "./pages/Verify";
 import { VerifyOtp } from "./pages/VerifyOtp";
 import { Profile } from "./pages/Profile";
 import { InspectorDashboard } from "./pages/inspector/InspectorDashboard";
+import { InspectorReports } from "./pages/inspector/InspectorReports";
+import { CaseInvestigation } from "./pages/inspector/CaseInvestigation";
+import { HeatMap } from "./pages/inspector/HeatMap";
+import { BusinessDirectory } from "./pages/inspector/BusinessDirectory";
+import { GovernmentAnalytics } from "./pages/inspector/GovernmentAnalytics";
 
 function ProtectedApp() {
   const { user } = useAuth();
@@ -23,6 +28,12 @@ function ProtectedApp() {
           <Routes>
             <Route path="/" element={<Navigate to="/inspector" replace />} />
             <Route path="/inspector" element={<InspectorDashboard />} />
+            <Route path="/inspector/reports" element={<InspectorReports />} />
+            <Route path="/inspector/case/:id" element={<CaseInvestigation />} />
+            <Route path="/inspector/heatmap" element={<HeatMap />} />
+            <Route path="/inspector/businesses" element={<BusinessDirectory />} />
+            <Route path="/inspector/analytics" element={<GovernmentAnalytics />} />
+            <Route path="/profile" element={<Profile />} />
             <Route path="*" element={<Navigate to="/inspector" replace />} />
           </Routes>
         </AuthGuard>

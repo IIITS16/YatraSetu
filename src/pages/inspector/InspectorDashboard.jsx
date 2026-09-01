@@ -17,7 +17,7 @@ export function InspectorDashboard() {
           fetch(`${API_BASE}/inspector/stats`, {
             headers: { Authorization: `Bearer ${token}` }
           }),
-          fetch(`${API_BASE}/inspector/reports/recent`, {
+          fetch(`${API_BASE}/inspector/reports`, {
             headers: { Authorization: `Bearer ${token}` }
           })
         ]);
@@ -88,50 +88,76 @@ export function InspectorDashboard() {
         </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-3">
-        {/* Recent Pending Reports */}
-        <div className="md:col-span-2 space-y-4">
+      {/* Main Content Area */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-slate-800">Action Required Feed</h2>
-            <Link to="/inspector/reports" className="text-sm font-semibold text-teal-600 hover:text-teal-700">
+            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+              Priority Action Queue <span className="text-xs bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full">Sorted by Risk</span>
+            </h2>
+            <Link to="/inspector/reports" className="text-sm font-semibold text-teal-600 hover:text-teal-700 transition">
               View all
             </Link>
           </div>
           
-          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-            {recentReports.length > 0 ? (
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden min-h-[300px]">
+            {loading ? (
+              <div className="p-8 text-center text-slate-500">Loading feed...</div>
+            ) : recentReports.length === 0 ? (
+              <div className="flex flex-col items-center justify-center p-12 text-center">
+                <div className="rounded-full bg-slate-50 p-4 mb-3">
+                  <ShieldCheck className="text-slate-300" size={32} />
+                </div>
+                <p className="font-medium text-slate-500">No pending reports in your region.</p>
+                <p className="text-sm text-slate-400 mt-1">You are fully caught up!</p>
+              </div>
+            ) : (
               <ul className="divide-y divide-slate-100">
-                {recentReports.map(report => (
-                  <li key={report.id} className="p-4 hover:bg-slate-50 transition-colors">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="inline-flex items-center rounded-md bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-800">
-                            {report.concern_type}
-                          </span>
-                          <span className="text-xs text-slate-500">
+                {recentReports.slice(0, 5).map(report => (
+                  <li key={report.id} className="p-4 hover:bg-slate-50 transition-colors group">
+                    <div className="flex gap-4">
+                      <div className="shrink-0 mt-1">
+                        <div className={`grid h-10 w-10 place-items-center rounded-full ${
+                          report.risk_score >= 80 ? 'bg-rose-100 text-rose-600' :
+                          report.risk_score >= 50 ? 'bg-amber-100 text-amber-600' :
+                          'bg-teal-100 text-teal-600'
+                        }`}>
+                          <AlertTriangle size={18} />
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <p className="font-semibold text-slate-900 truncate">
+                            {report.business_name || "Unknown Location"}
+                          </p>
+                          <span className="shrink-0 text-xs text-slate-500">
                             {new Date(report.created_at).toLocaleDateString()}
                           </span>
                         </div>
-                        <p className="mt-1 font-semibold text-slate-900">{report.business_name || "Unknown Business"}</p>
-                        <p className="mt-1 text-sm text-slate-600 line-clamp-2">{report.description}</p>
+                        <p className="text-sm text-slate-600 mb-2 truncate">
+                          {report.concern_type}
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
+                            Risk Score: {report.risk_score || 0}
+                          </span>
+                          <span className="inline-flex items-center rounded-md bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 border border-amber-200/50">
+                            {report.status}
+                          </span>
+                        </div>
                       </div>
-                      <Link
-                        to={`/inspector/reports`}
-                        className="shrink-0 rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-800"
-                      >
-                        Review
-                      </Link>
+                      <div className="shrink-0 flex items-center">
+                        <Link 
+                          to={`/inspector/case/${report.id}`}
+                          className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 group-hover:border-teal-300 group-hover:text-teal-700"
+                        >
+                          Investigate
+                        </Link>
+                      </div>
                     </div>
                   </li>
                 ))}
               </ul>
-            ) : (
-              <div className="p-8 text-center text-slate-500">
-                <ShieldAlert size={32} className="mx-auto mb-3 text-slate-300" />
-                <p>No pending reports in your region.</p>
-                <p className="text-sm">You are fully caught up!</p>
-              </div>
             )}
           </div>
         </div>

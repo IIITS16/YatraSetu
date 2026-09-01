@@ -5,9 +5,57 @@ const { requireAuth } = require("../middleware/auth");
 const router = express.Router();
 
 // Reports are private to the authenticated account that created them.
-router.use(requireAuth);
+router.post("/", requireAuth, async (req, res) => {
+  try {
+    const { concern_type, description, latitude, longitude, business_name, region } = req.body;
+    let mediaUrls = [];
 
-router.get("/", async (req, res) => {
+    // 1. Detect or Create Business Record
+    let bId = null;
+    let riskScore = 10; // base default
+    if (business_name) {
+      const bRes = await pool.query("SELECT id, base_risk_score FROM businesses WHERE name ILIKE $1", [business_name]);
+      if (bRes.rowCount > 0) {
+        bId = bRes.rows[0].id;
+        // Increase risk score for repeat offender
+        await pool.query("UPDATE businesses SET base_risk_score = base_risk_score + 15 WHERE id = $1", [bId]);
+        riskScore = bRes.rows[0].base_risk_score + 15;
+      } else {
+        const newB = await pool.query(
+          "INSERT INTO businesses (name, region, base_risk_score) VALUES ($1, $2, $3) RETURNING id",
+          [business_name, region, 10]
+        );
+        bId = newB.rows[0].id;
+      }
+    }
+
+    // High risk categories
+    if (['Safety concern', 'Harassment or misbehavior'].includes(concern_type)) {
+      riskScore += 50;
+    }
+
+    // 2. Insert Report
+    const result = await pool.query(
+      `INSERT INTO reports 
+        (user_id, concern_type, description, latitude, longitude, media_urls, business_name, region, status, risk_score, business_id) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'new', $9, $10) RETURNING *`,
+      [req.user.id, concern_type, description, latitude, longitude, JSON.stringify(mediaUrls), business_name, region, riskScore, bId]
+    );
+
+    // 3. Optional: Create an Alert for inspectors in that region
+    await pool.query(`
+      INSERT INTO alerts (region, message, type)
+      VALUES ($1, $2, $3)
+    `, [region, `New high-priority report at ${business_name || 'unknown'}`, 'warning']);
+
+    res.json({ success: true, report: result.rows[0] });
+  } catch (err) {
+    console.error("REPORT ERROR:", err);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+});
+
+router.get("/", requireAuth, async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT
@@ -39,64 +87,6 @@ router.get("/", async (req, res) => {
   }
 });
 
-router.post("/", async (req, res) => {
-  try {
-    const { concern_type, business_name, region, description, latitude, longitude } =
-      req.body;
 
-    if (!concern_type || !description) {
-      return res.status(400).json({
-        success: false,
-        message: "Concern type and description are required.",
-      });
-    }
-
-    const lat =
-      latitude === "" || latitude == null ? null : Number(latitude);
-    const lng =
-      longitude === "" || longitude == null ? null : Number(longitude);
-
-    const result = await pool.query(
-      `
-      INSERT INTO reports (
-        user_id,
-        concern_type,
-        business_name,
-        region,
-        description,
-        latitude,
-        longitude,
-        status
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, 'Under review')
-      RETURNING
-        id,
-        user_id,
-        concern_type,
-        business_name,
-        region,
-        description,
-        latitude,
-        longitude,
-        created_at,
-        status
-      `,
-      [req.user.id, concern_type, business_name || null, region || null, description, lat, lng]
-    );
-
-    res.status(201).json({
-      success: true,
-      message: "Report submitted successfully.",
-      report: result.rows[0],
-    });
-  } catch (error) {
-    console.error("CREATE REPORT ERROR:", error.message);
-
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-});
 
 module.exports = router;

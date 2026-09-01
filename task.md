@@ -8,12 +8,14 @@
 ## 2. Database Schema Updates (`migrate.js`)
 - `[ ]` Create `businesses` table (to normalize businesses from free-text reports).
 - `[ ]` Create `inspections` table (to log raids/actions taken).
-- `[ ]` Add `resolved_at` and `resolved_by` columns to the `reports` table.
+- `[x]` Add `reviewed_at`, `reviewed_by`, and `reviewer_notes` columns to the `reports` table.
 
 ## 3. Backend APIs
 - `[x]` `GET /api/inspector/dashboard` - Fetch summary stats (total pending reports, high-risk businesses).
 - `[x]` `GET /api/inspector/reports` - Fetch a feed of unresolved reports for review.
+- `[x]` `PATCH /api/inspector/reports/:id/review` - Update report status.
 
 ## 4. UI Implementation
 - `[x]` Build summary cards on the Inspector Dashboard.
 - `[x]` Build the "Recent Reports" feed.
+- `[x]` Build the full `InspectorReports.jsx` view with review modal.
