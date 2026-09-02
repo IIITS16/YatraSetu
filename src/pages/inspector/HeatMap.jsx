@@ -15,6 +15,10 @@ const glowStyles = `
   .glow-marker-red { animation: pulse-red 2s infinite; }
   .glow-marker-amber { animation: pulse-amber 2s infinite; }
   .glow-marker-emerald { animation: pulse-emerald 2s infinite; }
+  
+  .dark-map-tiles {
+    filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
+  }
 `;
 
 // Realistic Demo Data for Jaipur SIH Demo
@@ -144,8 +148,9 @@ export function HeatMap() {
           
           <MapContainer center={center} zoom={12} style={{ height: "100%", width: "100%", backgroundColor: '#0f172a' }}>
             <TileLayer
-              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-              attribution='&copy; <a href="https://carto.com/attributions">CARTO</a>'
+              url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
+              attribution='&copy; Google Maps'
+              className="dark-map-tiles"
             />
             
             {points.map((p, index) => {

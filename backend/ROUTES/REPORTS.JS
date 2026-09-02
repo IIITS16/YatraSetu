@@ -37,9 +37,9 @@ router.post("/", requireAuth, async (req, res) => {
     // 2. Insert Report
     const result = await pool.query(
       `INSERT INTO reports 
-        (user_id, concern_type, description, latitude, longitude, media_urls, business_name, region, status, risk_score, business_id) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'new', $9, $10) RETURNING *`,
-      [req.user.id, concern_type, description, latitude, longitude, JSON.stringify(mediaUrls), business_name, region, riskScore, bId]
+        (user_id, concern_type, description, latitude, longitude, business_name, region, status, risk_score, business_id) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'new', $8, $9) RETURNING *`,
+      [req.user.id, concern_type, description, latitude, longitude, business_name, region, riskScore, bId]
     );
 
     // 3. Optional: Create an Alert for inspectors in that region
@@ -51,7 +51,8 @@ router.post("/", requireAuth, async (req, res) => {
     res.json({ success: true, report: result.rows[0] });
   } catch (err) {
     console.error("REPORT ERROR:", err);
-    res.status(500).json({ success: false, message: "Internal server error" });
+    require('fs').appendFileSync('error.log', err.stack + '\\n');
+    res.status(500).json({ success: false, message: err.message, stack: err.stack });
   }
 });
 

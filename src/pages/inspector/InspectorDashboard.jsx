@@ -3,16 +3,36 @@ import { useAuth } from "../../auth";
 import { API_BASE } from "../../config";
 import { Link } from "react-router-dom";
 import { AlertTriangle, BadgeCheck, FileText, Map as MapIcon, ShieldAlert, ArrowRight, Building2, List } from "lucide-react";
-import { MapContainer, TileLayer, Marker, Popup, Polygon } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Polygon, Tooltip } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
-// South Jaipur Polygon (Mansarovar, Sanganer, Pratap Nagar area)
-const SOUTH_JAIPUR_POLYGON = [
-  [26.885, 75.730], // West edge (Mansarovar West)
-  [26.865, 75.835], // East edge (Malviya Nagar/Jagatpura)
-  [26.750, 75.850], // South East (Sitapura)
-  [26.770, 75.710], // South West (Muhana)
+const JAIPUR_ZONES = [
+  {
+    name: "Jaipur North",
+    positions: [[27.020, 75.650], [27.020, 75.850], [26.960, 75.850], [26.960, 75.650]],
+    color: '#8b0000', fillColor: '#ffb6c1' // Dark Red border, Light Pink fill
+  },
+  {
+    name: "Amer / Old City",
+    positions: [[27.020, 75.850], [27.020, 75.920], [26.910, 75.920], [26.910, 75.850]],
+    color: '#d2691e', fillColor: '#ffe4b5' // Solid Orange border, Light Gold fill
+  },
+  {
+    name: "Jaipur West",
+    positions: [[26.960, 75.650], [26.960, 75.750], [26.830, 75.750], [26.830, 75.650]],
+    color: '#4b0082', fillColor: '#d8bfd8' // Dark Purple border, Light Purple fill
+  },
+  {
+    name: "Jaipur East",
+    positions: [[26.960, 75.750], [26.960, 75.850], [26.910, 75.850], [26.910, 75.920], [26.830, 75.920], [26.830, 75.750]],
+    color: '#006400', fillColor: '#90ee90' // Dark Green border, Light Green fill
+  },
+  {
+    name: "Jaipur South",
+    positions: [[26.830, 75.650], [26.830, 75.920], [26.750, 75.920], [26.750, 75.650]],
+    color: '#00008b', fillColor: '#add8e6' // Dark Blue border, Light Blue fill
+  }
 ];
 
 const center = [26.9124, 75.8173]; // Jaipur
@@ -132,18 +152,25 @@ export function InspectorDashboard() {
               <div className="h-[450px] w-full z-0 relative">
                 <MapContainer center={center} zoom={11} style={{ height: "100%", width: "100%", backgroundColor: '#ffffff' }}>
                   <TileLayer
-                    url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-                    attribution='&copy; <a href="https://carto.com/attributions">CARTO</a>'
+                    url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
+                    attribution='&copy; Google Maps'
                   />
-                  <Polygon 
-                    positions={SOUTH_JAIPUR_POLYGON}
-                    pathOptions={{
-                      fillColor: '#add8e6', // light blue
-                      fillOpacity: 0.4,
-                      color: '#00008b', // dark blue boundary
-                      weight: 2
-                    }}
-                  />
+                  {JAIPUR_ZONES.map((zone, idx) => (
+                    <Polygon 
+                      key={idx}
+                      positions={zone.positions}
+                      pathOptions={{
+                        fillColor: zone.fillColor,
+                        fillOpacity: 0.35,
+                        color: zone.color,
+                        weight: 2
+                      }}
+                    >
+                      <Tooltip sticky>
+                        <span className="font-bold text-slate-800">{zone.name}</span>
+                      </Tooltip>
+                    </Polygon>
+                  ))}
                   {recentReports.filter(r => r.latitude && r.longitude).map((report) => (
                     <Marker key={report.id} position={[report.latitude, report.longitude]}>
                       <Popup>
