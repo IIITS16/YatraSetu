@@ -28,8 +28,9 @@ router.post("/", upload.single("bill"), async (req, res) => {
       return res.status(500).json({ success: false, message: "GEMINI_API_KEY not configured in .env" });
     }
 
-    // Using gemini-3.5-flash-lite as requested by the user
-    const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash-lite" });
+    // Using gemini-1.5-flash for OCR capabilities
+    // const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash-lite" });
 
     const prompt = `
       You are an expert fraud detection AI for a Tourism Intelligence System.
