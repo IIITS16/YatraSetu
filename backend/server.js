@@ -45,10 +45,13 @@ app.get("/api/test-db", async (req, res) => {
   }
 });
 
+const scanRouter = require("./routes/scan");
+
 // API routes
 app.use("/api/reports", reportsRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/inspector", inspectorRouter);
+app.use("/api/scan-bill", scanRouter);
 
 // 404
 app.use((req, res) => {
