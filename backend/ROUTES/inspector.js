@@ -8,7 +8,7 @@ const router = express.Router();
 router.use(requireAuth);
 router.use(requireRole("inspector", "government"));
 
-router.get("/stats", async (req, res) => {
+router.get("/stats", requireAuth, async (req, res) => {
   try {
     const isGov = req.user.role === "government";
     const regionFilter = isGov ? "1=1" : "region = $1";
@@ -17,8 +17,9 @@ router.get("/stats", async (req, res) => {
     const statsResult = await pool.query(`
       SELECT 
         COUNT(*)::int as total_reports,
-        COALESCE(SUM(CASE WHEN status IN ('pending', 'Under review') THEN 1 ELSE 0 END), 0)::int as pending_reports,
-        COALESCE(SUM(CASE WHEN status IN ('valid', 'invalid') THEN 1 ELSE 0 END), 0)::int as resolved_reports
+        COALESCE(SUM(CASE WHEN status IN ('new', 'review', 'investigating', 'escalated', 'pending', 'Under review') THEN 1 ELSE 0 END), 0)::int as pending_reports,
+        COALESCE(SUM(CASE WHEN status IN ('valid', 'resolved') THEN 1 ELSE 0 END), 0)::int as resolved_reports,
+        COALESCE(SUM(CASE WHEN status = 'invalid' THEN 1 ELSE 0 END), 0)::int as discarded_reports
       FROM reports 
       WHERE ${regionFilter}
     `, params);

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../auth";
 import { API_BASE } from "../config";
 import { Camera, Save, Trash2, ShieldCheck, Languages, UserCircle } from "lucide-react";
@@ -14,6 +14,20 @@ export function Profile() {
   
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [liveStats, setLiveStats] = useState(null);
+
+  useEffect(() => {
+    if (user?.role === "inspector" || user?.role === "government") {
+      fetch(`${API_BASE}/inspector/stats`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) setLiveStats(data.stats);
+      })
+      .catch(console.error);
+    }
+  }, [user?.role, token]);
 
   async function handleSave(e) {
     e.preventDefault();
@@ -154,30 +168,57 @@ export function Profile() {
       </div>
 
       {/* Travel & Report Statistics */}
-      <div className="mt-8 rounded-2xl border bg-white p-6 shadow-sm">
-        <h3 className="text-lg font-bold text-ink">My Report Statistics</h3>
-        <p className="mt-1 text-sm text-slate-500">
-          Track the status of concerns you've reported.
-        </p>
-        <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <div className="rounded-xl bg-slate-50 p-4 text-center">
-            <p className="text-3xl font-bold text-slate-700">{user?.stats?.total || 0}</p>
-            <p className="mt-1 text-xs font-semibold uppercase text-slate-500">Total Reports</p>
-          </div>
-          <div className="rounded-xl bg-amber-50 p-4 text-center border border-amber-100">
-            <p className="text-3xl font-bold text-amber-600">{user?.stats?.pending_count || 0}</p>
-            <p className="mt-1 text-xs font-semibold uppercase text-amber-700">Pending Review</p>
-          </div>
-          <div className="rounded-xl bg-teal-50 p-4 text-center border border-teal-100">
-            <p className="text-3xl font-bold text-teal-600">{user?.stats?.valid_count || 0}</p>
-            <p className="mt-1 text-xs font-semibold uppercase text-teal-700">Verified True</p>
-          </div>
-          <div className="rounded-xl bg-rose-50 p-4 text-center border border-rose-100">
-            <p className="text-3xl font-bold text-rose-600">{user?.stats?.invalid_count || 0}</p>
-            <p className="mt-1 text-xs font-semibold uppercase text-rose-700">Verified False</p>
+      {user?.role === "tourist" ? (
+        <div className="mt-8 rounded-2xl border bg-white p-6 shadow-sm">
+          <h3 className="text-lg font-bold text-ink">My Report Statistics</h3>
+          <p className="mt-1 text-sm text-slate-500">
+            Track the status of concerns you've reported.
+          </p>
+          <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <div className="rounded-xl bg-slate-50 p-4 text-center">
+              <p className="text-3xl font-bold text-slate-700">{user?.stats?.total || 0}</p>
+              <p className="mt-1 text-xs font-semibold uppercase text-slate-500">Total Reports</p>
+            </div>
+            <div className="rounded-xl bg-amber-50 p-4 text-center border border-amber-100">
+              <p className="text-3xl font-bold text-amber-600">{user?.stats?.pending_count || 0}</p>
+              <p className="mt-1 text-xs font-semibold uppercase text-amber-700">Pending Review</p>
+            </div>
+            <div className="rounded-xl bg-teal-50 p-4 text-center border border-teal-100">
+              <p className="text-3xl font-bold text-teal-600">{user?.stats?.valid_count || 0}</p>
+              <p className="mt-1 text-xs font-semibold uppercase text-teal-700">Verified True</p>
+            </div>
+            <div className="rounded-xl bg-rose-50 p-4 text-center border border-rose-100">
+              <p className="text-3xl font-bold text-rose-600">{user?.stats?.invalid_count || 0}</p>
+              <p className="mt-1 text-xs font-semibold uppercase text-rose-700">Verified False</p>
+            </div>
           </div>
         </div>
-      </div>
+      ) : (
+        <div className="mt-8 rounded-2xl border bg-slate-900 p-6 shadow-sm text-white">
+          <h3 className="text-lg font-bold">Jurisdiction Overview ({user?.region || "All"})</h3>
+          <p className="mt-1 text-sm text-slate-400">
+            Real-time compliance load in your assigned area.
+          </p>
+          <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <div className="rounded-xl bg-slate-800 p-4 text-center border border-slate-700">
+              <p className="text-3xl font-bold text-white">{liveStats?.total_reports || 0}</p>
+              <p className="mt-1 text-xs font-semibold uppercase text-slate-400">Total Problems</p>
+            </div>
+            <div className="rounded-xl bg-amber-500/10 p-4 text-center border border-amber-500/20">
+              <p className="text-3xl font-bold text-amber-400">{liveStats?.pending_reports || 0}</p>
+              <p className="mt-1 text-xs font-semibold uppercase text-amber-400/80">In Review</p>
+            </div>
+            <div className="rounded-xl bg-teal-500/10 p-4 text-center border border-teal-500/20">
+              <p className="text-3xl font-bold text-teal-400">{liveStats?.resolved_reports || 0}</p>
+              <p className="mt-1 text-xs font-semibold uppercase text-teal-400/80">Verified</p>
+            </div>
+            <div className="rounded-xl bg-rose-500/10 p-4 text-center border border-rose-500/20">
+              <p className="text-3xl font-bold text-rose-400">{liveStats?.discarded_reports || 0}</p>
+              <p className="mt-1 text-xs font-semibold uppercase text-rose-400/80">Discarded</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Danger Zone */}
       <div className="mt-8 rounded-2xl border border-rose-200 bg-rose-50 p-6">

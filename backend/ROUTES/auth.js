@@ -252,15 +252,29 @@ router.post("/logout", requireAuth, async (req, res) => {
 
 router.get("/me", requireAuth, async (req, res) => {
   try {
-    const statsResult = await pool.query(`
-      SELECT 
-        COUNT(*)::int as total,
-        COALESCE(SUM(CASE WHEN status IN ('valid', 'resolved') THEN 1 ELSE 0 END), 0)::int as valid_count,
-        COALESCE(SUM(CASE WHEN status = 'invalid' THEN 1 ELSE 0 END), 0)::int as invalid_count,
-        COALESCE(SUM(CASE WHEN status IN ('new', 'review', 'investigating', 'escalated', 'pending', 'Under review') THEN 1 ELSE 0 END), 0)::int as pending_count
-      FROM reports 
-      WHERE user_id = $1
-    `, [req.user.id]);
+    let statsResult;
+    
+    if (req.user.role === 'inspector' || req.user.role === 'government') {
+      statsResult = await pool.query(`
+        SELECT 
+          COUNT(*)::int as total,
+          COALESCE(SUM(CASE WHEN status IN ('valid', 'resolved') THEN 1 ELSE 0 END), 0)::int as valid_count,
+          COALESCE(SUM(CASE WHEN status = 'invalid' THEN 1 ELSE 0 END), 0)::int as invalid_count,
+          COALESCE(SUM(CASE WHEN status IN ('new', 'review', 'investigating', 'escalated', 'pending', 'Under review') THEN 1 ELSE 0 END), 0)::int as pending_count
+        FROM reports 
+        WHERE ($1::text = 'all' OR region = $1)
+      `, [req.user.region || 'all']);
+    } else {
+      statsResult = await pool.query(`
+        SELECT 
+          COUNT(*)::int as total,
+          COALESCE(SUM(CASE WHEN status IN ('valid', 'resolved') THEN 1 ELSE 0 END), 0)::int as valid_count,
+          COALESCE(SUM(CASE WHEN status = 'invalid' THEN 1 ELSE 0 END), 0)::int as invalid_count,
+          COALESCE(SUM(CASE WHEN status IN ('new', 'review', 'investigating', 'escalated', 'pending', 'Under review') THEN 1 ELSE 0 END), 0)::int as pending_count
+        FROM reports 
+        WHERE user_id = $1
+      `, [req.user.id]);
+    }
 
     const stats = statsResult.rows[0];
 
