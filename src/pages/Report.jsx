@@ -1,19 +1,47 @@
-import { useState } from "react";
-import { CheckCircle2, LocateFixed, Upload } from "lucide-react";
-import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { CheckCircle2, LocateFixed, Upload, File as FileIcon } from "lucide-react";
+import { Link, useLocation } from "react-router-dom";
 import { API_BASE } from "../config";
 import { useAuth } from "../auth";
 
 export function Report() {
   const { token } = useAuth();
+  const locationState = useLocation().state;
+  
   const [location, setLocation] = useState(null);
   const [concern, setConcern] = useState("");
   const [business, setBusiness] = useState("");
   const [region, setRegion] = useState("");
   const [details, setDetails] = useState("");
+  const [evidence, setEvidence] = useState(null);
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (locationState?.scannedBillData) {
+      setConcern("Overcharging or unclear bill");
+      if (locationState.scannedBillData.merchant_name) {
+        setBusiness(locationState.scannedBillData.merchant_name);
+      }
+      
+      const issues = [];
+      if (locationState.scannedBillData.detected_reasons) {
+        issues.push(...locationState.scannedBillData.detected_reasons);
+      }
+      if (locationState.scannedBillData.price_anomalies) {
+        issues.push(...locationState.scannedBillData.price_anomalies);
+      }
+      
+      if (issues.length > 0) {
+        setDetails(`AI Scan detected the following issues:\n- ${issues.join('\n- ')}`);
+      }
+    }
+
+    if (locationState?.billFile) {
+      setEvidence(locationState.billFile);
+    }
+  }, [locationState]);
 
   function capture() {
     setLoading(true);
@@ -197,10 +225,15 @@ export function Report() {
 
         <label className="block text-sm font-semibold text-ink">
           Evidence <span className="font-normal text-slate-400">(optional)</span>
-          <span className="mt-2 flex cursor-pointer items-center gap-2 rounded-xl border border-dashed border-slate-300 px-3 py-3 font-normal text-slate-600">
-            <Upload size={18} />
-            Attach bill or photo
-            <input type="file" accept="image/*,.pdf" className="hidden" />
+          <span className={`mt-2 flex cursor-pointer items-center gap-2 rounded-xl border ${evidence ? 'border-solid border-teal-200 bg-teal-50 text-teal-700' : 'border-dashed border-slate-300 text-slate-600'} px-3 py-3 font-normal`}>
+            {evidence ? <FileIcon size={18} /> : <Upload size={18} />}
+            {evidence ? evidence.name : "Attach bill or photo"}
+            <input 
+              type="file" 
+              accept="image/*,.pdf" 
+              className="hidden" 
+              onChange={(e) => setEvidence(e.target.files?.[0])}
+            />
           </span>
         </label>
 
