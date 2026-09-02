@@ -46,6 +46,19 @@ async function migrate() {
     `, [inspector.email, inspector.name, inspector.region]);
   }
 
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS reports (
+      id SERIAL PRIMARY KEY,
+      concern_type TEXT NOT NULL,
+      business_name TEXT,
+      description TEXT,
+      latitude DOUBLE PRECISION,
+      longitude DOUBLE PRECISION,
+      media_urls TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
   await pool.query(`ALTER TABLE reports ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'pending'`);
   await pool.query(`ALTER TABLE reports ADD COLUMN IF NOT EXISTS user_id INTEGER`);
   await pool.query(`ALTER TABLE reports ADD COLUMN IF NOT EXISTS region TEXT`);
