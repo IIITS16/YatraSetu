@@ -32,6 +32,8 @@ router.post("/", upload.single("bill"), async (req, res) => {
     // const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
         const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash-lite" });
 
+        // 
+        //Rules  are defines before
     const prompt = `
       You are an expert fraud detection AI for a Tourism Intelligence System.
       Analyze this bill/invoice image.
