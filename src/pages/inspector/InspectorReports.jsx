@@ -299,9 +299,9 @@ export function InspectorReports() {
                         <CheckCircle2 size={12} /> Valid
                       </span>
                     )}
-                    {report.status === 'invalid' && (
+                    {(report.status === 'invalid' || report.status === 'discarded') && (
                       <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2.5 py-1 text-xs font-medium text-rose-700 ring-1 ring-inset ring-rose-600/20">
-                        <AlertCircle size={12} /> Invalid
+                        <AlertCircle size={12} /> Rejected (False)
                       </span>
                     )}
                     {(report.status === 'pending' || report.status === 'Under review' || report.status === 'new' || report.status === 'review') && (

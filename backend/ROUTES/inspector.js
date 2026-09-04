@@ -164,7 +164,7 @@ router.patch("/reports/:id/review", async (req, res) => {
     const { id } = req.params;
     const { status, reviewer_notes } = req.body;
 
-    const validStatuses = ['new', 'review', 'investigating', 'resolved', 'escalated', 'valid', 'invalid'];
+    const validStatuses = ['new', 'review', 'investigating', 'resolved', 'escalated', 'valid', 'invalid', 'discarded'];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ success: false, message: "Invalid status" });
     }
@@ -192,7 +192,7 @@ router.patch("/reports/:id/review", async (req, res) => {
         reviewed_by = $3, 
         reviewed_at = NOW()
       WHERE id = $4
-      RETURNING id, status, reviewer_notes, reviewed_at, region, assigned_to
+      RETURNING id, status, reviewer_notes, reviewed_at, region, assigned_to, user_id
     `, [status, reviewer_notes || null, req.user.id, id]);
 
     // Log to Action History
@@ -209,7 +209,8 @@ router.patch("/reports/:id/review", async (req, res) => {
       reportId: Number(id),
       status: updatedReport.status,
       assignedTo: updatedReport.assigned_to,
-      region: updatedReport.region
+      region: updatedReport.region,
+      userId: updatedReport.user_id
     }, updatedReport.assigned_to, updatedReport.region);
 
     res.json({

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth";
 import { API_BASE } from "../../config";
-import { ArrowLeft, Clock, ShieldAlert, CheckCircle, MapPin, Building, Phone, User as UserIcon } from "lucide-react";
+import { ArrowLeft, Clock, ShieldAlert, CheckCircle, MapPin, Building, Phone, User as UserIcon, XCircle } from "lucide-react";
 
 export function CaseInvestigation() {
   const { id } = useParams();
@@ -41,13 +41,23 @@ export function CaseInvestigation() {
   async function updateStatus(newStatus) {
     setSubmitting(true);
     try {
+      const defaultNotes = 
+        newStatus === 'invalid' 
+          ? "Case investigated and rejected as false/invalid report."
+          : newStatus === 'resolved'
+          ? "Case investigated and marked as verified/resolved."
+          : null;
+
       const res = await fetch(`${API_BASE}/inspector/reports/${id}/review`, {
         method: "PATCH",
         headers: { 
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}` 
         },
-        body: JSON.stringify({ status: newStatus, reviewer_notes: notes })
+        body: JSON.stringify({ 
+          status: newStatus, 
+          reviewer_notes: notes.trim() || defaultNotes 
+        })
       });
       const data = await res.json();
       if (data.success) {
@@ -76,8 +86,16 @@ export function CaseInvestigation() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-3">
             Case #{report.id}
-            <span className="text-xs uppercase tracking-wider font-bold bg-slate-100 text-slate-600 px-3 py-1 rounded-full border border-slate-200">
-              {report.status}
+            <span className={`text-xs uppercase tracking-wider font-bold px-3 py-1 rounded-full border ${
+              report.status === 'invalid' || report.status === 'discarded'
+                ? 'bg-rose-100 text-rose-700 border-rose-200'
+                : report.status === 'resolved' || report.status === 'valid'
+                ? 'bg-teal-100 text-teal-700 border-teal-200'
+                : report.status === 'investigating'
+                ? 'bg-amber-100 text-amber-700 border-amber-200'
+                : 'bg-slate-100 text-slate-600 border-slate-200'
+            }`}>
+              {report.status === 'invalid' || report.status === 'discarded' ? 'Rejected (False)' : report.status}
             </span>
           </h1>
           <p className="text-slate-500 mt-1">Reported on {new Date(report.created_at).toLocaleString()}</p>
@@ -198,11 +216,18 @@ export function CaseInvestigation() {
                 Escalate to Government
               </button>
               <button 
-                disabled={submitting}
+                disabled={submitting || report.status === 'resolved'}
                 onClick={() => updateStatus('resolved')}
                 className="w-full py-2.5 rounded-xl bg-teal-500 hover:bg-teal-600 text-teal-950 font-bold text-sm transition disabled:opacity-50 flex justify-center items-center gap-2"
               >
                 <CheckCircle size={16} /> Mark Resolved
+              </button>
+              <button 
+                disabled={submitting || report.status === 'invalid' || report.status === 'discarded'}
+                onClick={() => updateStatus('invalid')}
+                className="w-full py-2.5 rounded-xl bg-rose-700 hover:bg-rose-800 text-white font-bold text-sm transition disabled:opacity-50 flex justify-center items-center gap-2 shadow-sm"
+              >
+                <XCircle size={16} /> Reject Request (Mark False)
               </button>
             </div>
           </div>

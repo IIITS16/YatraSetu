@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../../auth";
 import { API_BASE } from "../../config";
 import { Link } from "react-router-dom";
-import { AlertTriangle, BadgeCheck, FileText, Map as MapIcon, ShieldAlert, ArrowRight, Building2, List } from "lucide-react";
+import { AlertTriangle, BadgeCheck, FileText, Map as MapIcon, ShieldAlert, ArrowRight, Building2, List, XCircle } from "lucide-react";
 import { MapContainer, TileLayer, Marker, Popup, Polygon, Tooltip } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -128,7 +128,7 @@ export function InspectorDashboard() {
       </div>
 
       {/* KPI Metrics */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
         <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5">
           <div className="flex items-center gap-2 text-rose-600">
             <AlertTriangle size={18} />
@@ -145,6 +145,14 @@ export function InspectorDashboard() {
           <p className="mt-2 text-3xl font-black text-teal-700">{stats?.resolved_reports || 0}</p>
         </div>
 
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+          <div className="flex items-center gap-2 text-slate-600">
+            <XCircle size={18} className="text-slate-500" />
+            <h3 className="text-xs font-bold uppercase tracking-wider">Discarded</h3>
+          </div>
+          <p className="mt-2 text-3xl font-black text-slate-700">{stats?.discarded_reports || 0}</p>
+        </div>
+
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
           <div className="flex items-center gap-2 text-amber-600">
             <Building2 size={18} />
@@ -153,7 +161,7 @@ export function InspectorDashboard() {
           <p className="mt-2 text-3xl font-black text-amber-700">{stats?.high_risk_reports || 0}</p>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm col-span-2 sm:col-span-1">
           <div className="flex items-center gap-2 text-slate-500">
             <FileText size={18} />
             <h3 className="text-xs font-bold uppercase tracking-wider">Total</h3>

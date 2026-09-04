@@ -11,8 +11,9 @@ export function MyReports() {
   useEffect(() => {
     let active = true;
 
-    async function loadReports() {
+    async function loadReports(isBackground = false) {
       try {
+        if (!isBackground) setLoading(true);
         const response = await fetch(`${API_BASE}/reports`, {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -26,22 +27,67 @@ export function MyReports() {
           setReports(data.reports || []);
         }
       } catch (err) {
-        if (active) {
+        if (active && !isBackground) {
           setError(err.message);
         }
       } finally {
-        if (active) {
+        if (active && !isBackground) {
           setLoading(false);
         }
       }
     }
 
-    loadReports();
+    loadReports(false);
+
+    // 3-second background polling
+    const interval = setInterval(() => {
+      loadReports(true);
+    }, 3000);
+
+    // Window focus revalidation
+    const handleFocus = () => loadReports(true);
+    window.addEventListener("focus", handleFocus);
 
     return () => {
       active = false;
+      clearInterval(interval);
+      window.removeEventListener("focus", handleFocus);
     };
   }, [token]);
+
+  function renderStatusBadge(status) {
+    const s = (status || "").toLowerCase();
+    if (s === "invalid" || s === "discarded") {
+      return (
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-50 border border-rose-200 px-3 py-1 text-xs font-bold text-rose-700">
+          <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
+          Verified False
+        </span>
+      );
+    }
+    if (s === "resolved" || s === "valid") {
+      return (
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-teal-50 border border-teal-200 px-3 py-1 text-xs font-bold text-teal-700">
+          <span className="h-1.5 w-1.5 rounded-full bg-teal-500" />
+          Verified True
+        </span>
+      );
+    }
+    if (s === "investigating") {
+      return (
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-200 px-3 py-1 text-xs font-bold text-amber-700">
+          <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+          Investigating
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 border border-blue-200 px-3 py-1 text-xs font-bold text-blue-700 capitalize">
+        <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+        {status || "Pending Review"}
+      </span>
+    );
+  }
 
   return (
     <div className="page-enter mx-auto max-w-3xl">
@@ -68,9 +114,7 @@ export function MyReports() {
                     {report.concern_type} · {report.business_name || "Unknown location"}
                   </p>
                 </div>
-                <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
-                  {report.status}
-                </span>
+                {renderStatusBadge(report.status)}
               </div>
               <p className="mt-4 text-sm leading-6 text-slate-600">
                 {report.description}

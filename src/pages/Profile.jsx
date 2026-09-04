@@ -34,6 +34,18 @@ export function Profile() {
         } catch (err) {
           console.error("Profile stats fetch error:", err);
         }
+      } else if (user?.role === "tourist") {
+        try {
+          const res = await fetch(`${API_BASE}/auth/me`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          const data = await res.json();
+          if (isMounted && data.success && data.user) {
+            updateUser(data.user);
+          }
+        } catch (err) {
+          console.error("Profile stats fetch error:", err);
+        }
       }
     }
 

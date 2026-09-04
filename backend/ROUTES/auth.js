@@ -285,7 +285,7 @@ router.get("/me", requireAuth, async (req, res) => {
         SELECT 
           COUNT(*)::int as total,
           COALESCE(SUM(CASE WHEN status IN ('valid', 'resolved') THEN 1 ELSE 0 END), 0)::int as valid_count,
-          COALESCE(SUM(CASE WHEN status = 'invalid' THEN 1 ELSE 0 END), 0)::int as invalid_count,
+          COALESCE(SUM(CASE WHEN status IN ('invalid', 'discarded') THEN 1 ELSE 0 END), 0)::int as invalid_count,
           COALESCE(SUM(CASE WHEN status IN ('new', 'review', 'investigating', 'escalated', 'pending', 'Under review') THEN 1 ELSE 0 END), 0)::int as pending_count
         FROM reports 
         WHERE user_id = $1
