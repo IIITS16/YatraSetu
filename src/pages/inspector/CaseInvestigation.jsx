@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth";
 import { API_BASE } from "../../config";
-import { ArrowLeft, Clock, ShieldAlert, CheckCircle, MapPin, Building, Phone, User as UserIcon } from "lucide-react";
+import { ArrowLeft, Clock, ShieldAlert, CheckCircle, MapPin, Building, Phone, User as UserIcon, Sparkles } from "lucide-react";
 
 export function CaseInvestigation() {
   const { id } = useParams();
@@ -122,6 +122,16 @@ export function CaseInvestigation() {
                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Description</p>
                 <p className="text-slate-700 bg-slate-50 p-4 rounded-xl border border-slate-100">{report.description}</p>
               </div>
+
+              {report.reviewer_notes && report.reviewer_notes.startsWith("AI Insight:") && (
+                <div className="mt-6 rounded-xl border border-purple-200 bg-purple-50 p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Sparkles size={16} className="text-purple-600" />
+                    <h3 className="text-sm font-bold text-purple-900 uppercase tracking-wider">AI Risk Analysis</h3>
+                  </div>
+                  <p className="text-sm text-purple-800">{report.reviewer_notes}</p>
+                </div>
+              )}
             </div>
           </div>
 

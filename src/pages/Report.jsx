@@ -80,20 +80,21 @@ export function Report() {
     setSubmitting(true);
 
     try {
+      const formData = new FormData();
+      formData.append("concern_type", concern);
+      formData.append("business_name", business);
+      formData.append("region", region);
+      formData.append("description", details);
+      if (location?.latitude) formData.append("latitude", location.latitude);
+      if (location?.longitude) formData.append("longitude", location.longitude);
+      if (evidence) formData.append("evidence", evidence);
+
       const response = await fetch(`${API_BASE}/reports`, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          concern_type: concern,
-          business_name: business,
-          region: region,
-          description: details,
-          latitude: location?.latitude ?? null,
-          longitude: location?.longitude ?? null,
-        }),
+        body: formData,
       });
 
       const data = await response.json();

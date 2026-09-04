@@ -41,7 +41,7 @@ router.get("/reports/recent", async (req, res) => {
     const params = isGov ? [] : [req.user.id];
 
     const reportsResult = await pool.query(`
-      SELECT id, concern_type, business_name, description, status, created_at, region
+      SELECT id, concern_type, business_name, description, status, created_at, region, risk_score
       FROM reports
       WHERE ${filter} AND status IN ('pending', 'Under review', 'new', 'review', 'investigating')
       ORDER BY created_at DESC

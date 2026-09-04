@@ -1,13 +1,76 @@
 const express = require("express");
 const pool = require("../db");
 const { requireAuth } = require("../middleware/auth");
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+const multer = require("multer");
+const fs = require("fs");
 
+const upload = multer({ dest: "uploads/" });
 const router = express.Router();
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "dummy");
+
+// Async function to evaluate severity using AI without blocking the user
+async function analyzeRiskAsync(reportId, concern_type, description, filePath, mimeType) {
+  if (!process.env.GEMINI_API_KEY) return;
+  try {
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }); // gemini-1.5 supports multimodal
+    const prompt = `
+      You are an AI Inspector for the YatraSetu tourist safety platform.
+      Analyze the following tourist report and determine the fraud/safety risk severity.
+      Concern Type: "${concern_type}"
+      Description: "${description}"
+      ${filePath ? "An image has also been attached as evidence. Please analyze it visually." : ""}
+      
+      Respond strictly with a JSON object exactly in this format:
+      {
+        "ai_risk_modifier": <number between -10 and +40 based on severity>,
+        "ai_reasoning": "<short 1-sentence explanation of why this score was given>"
+      }
+      Do not include markdown or backticks in the response.
+    `;
+    
+    let contentParts = [prompt];
+    
+    if (filePath && fs.existsSync(filePath)) {
+      contentParts.unshift({
+        inlineData: {
+          data: Buffer.from(fs.readFileSync(filePath)).toString("base64"),
+          mimeType: mimeType || "image/jpeg"
+        }
+      });
+    }
+
+    const result = await model.generateContent(contentParts);
+    let text = result.response.text().trim();
+    if (text.startsWith('```json')) text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+    if (text.startsWith('```')) text = text.replace(/```/g, '').trim();
+    
+    const parsed = JSON.parse(text);
+    const modifier = typeof parsed.ai_risk_modifier === 'number' ? parsed.ai_risk_modifier : 0;
+    const reasoning = parsed.ai_reasoning || "AI analysis completed.";
+    
+    await pool.query(
+      "UPDATE reports SET risk_score = risk_score + $1, reviewer_notes = $2 WHERE id = $3",
+      [modifier, `AI Insight: ${reasoning}`, reportId]
+    );
+    console.log(`[AI Risk Engine] Updated report ${reportId} with modifier +${modifier}`);
+  } catch (err) {
+    console.error("[AI Risk Engine] Failed:", err.message);
+  } finally {
+    if (filePath && fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+  }
+}
 
 // Reports are private to the authenticated account that created them.
-router.post("/", requireAuth, async (req, res) => {
+router.post("/", requireAuth, upload.single("evidence"), async (req, res) => {
+  console.log("Headers:", req.headers['content-type']);
+  console.log("Body:", req.body);
+  console.log("File:", req.file);
   try {
-    const { concern_type, description, latitude, longitude, business_name, region } = req.body;
+    const body = req.body || {};
+    const { concern_type, description, latitude, longitude, business_name, region } = body;
     let mediaUrls = [];
 
     // 1. Detect or Create Business Record
@@ -58,6 +121,17 @@ router.post("/", requireAuth, async (req, res) => {
     `, [region, `New high-priority report at ${business_name || 'unknown'}`, 'warning']);
 
     res.json({ success: true, report: result.rows[0] });
+
+    // 4. Trigger Async AI Risk Analysis in Background (Non-blocking)
+    if (description || req.file) {
+      analyzeRiskAsync(
+        result.rows[0].id, 
+        concern_type, 
+        description || "No description provided", 
+        req.file ? req.file.path : null,
+        req.file ? req.file.mimetype : null
+      );
+    }
   } catch (err) {
     console.error("REPORT ERROR:", err);
     require('fs').appendFileSync('error.log', err.stack + '\\n');
