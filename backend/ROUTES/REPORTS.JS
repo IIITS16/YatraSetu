@@ -14,7 +14,7 @@ async function analyzeRiskAsync(reportId, concern_type, description, filePath, m
   if (!process.env.GEMINI_API_KEY) return;
   try {
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-1.5-flash",
+      model: "gemini-3.5-flash",
       generationConfig: { responseMimeType: "application/json" }
     });
     const prompt = `
