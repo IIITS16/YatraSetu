@@ -44,7 +44,7 @@ export function InspectorReports() {
     if (token) {
       fetchReports();
       const interval = setInterval(() => {
-        if (!selectedReport) fetchReports(false); // Don't poll while modal is open
+        if (!selectedReport) fetchReports(true); // Don't show loading spinner while polling
       }, 3000);
       return () => clearInterval(interval);
     }
@@ -60,7 +60,8 @@ export function InspectorReports() {
     // 2. Status filter
     if (filterStatus !== "all") {
       if (filterStatus === "pending") {
-        if (r.status !== "pending" && r.status !== "Under review") return false;
+        const pendingStatuses = ["pending", "Under review", "new", "review", "investigating"];
+        if (!pendingStatuses.includes(r.status)) return false;
       } else if (r.status !== filterStatus) {
         return false;
       }
@@ -167,7 +168,7 @@ export function InspectorReports() {
       {/* Quick Status Filters */}
       {!showFilters && (
         <div className="flex gap-2 overflow-x-auto pb-1 hide-scrollbar">
-          {['all', 'pending', 'valid', 'invalid'].map(status => (
+          {['all', 'pending', 'resolved', 'invalid'].map(status => (
             <button
               key={status}
               onClick={() => setFilterStatus(status)}
@@ -229,7 +230,7 @@ export function InspectorReports() {
             <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-teal-500 bg-white">
               <option value="all">All Statuses</option>
               <option value="pending">Pending Review</option>
-              <option value="valid">Valid (Verified)</option>
+              <option value="resolved">Resolved (Action Taken)</option>
               <option value="invalid">Invalid (Rejected)</option>
             </select>
           </div>
@@ -266,11 +267,6 @@ export function InspectorReports() {
                     <p className="mt-1 text-sm text-slate-600 line-clamp-2">{report.description}</p>
                   </div>
                   <div className="shrink-0 flex flex-col items-end gap-2">
-                    {report.status === 'valid' && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-teal-50 px-2.5 py-1 text-xs font-medium text-teal-700 ring-1 ring-inset ring-teal-600/20">
-                        <CheckCircle2 size={12} /> Valid
-                      </span>
-                    )}
                     {report.status === 'invalid' && (
                       <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2.5 py-1 text-xs font-medium text-rose-700 ring-1 ring-inset ring-rose-600/20">
                         <AlertCircle size={12} /> Invalid

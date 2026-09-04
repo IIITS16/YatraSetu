@@ -16,7 +16,7 @@ router.get("/stats", requireAuth, async (req, res) => {
 
     const statsResult = await pool.query(`
       SELECT 
-        COUNT(*)::int as total_reports,
+        COALESCE(SUM(CASE WHEN status != 'invalid' THEN 1 ELSE 0 END), 0)::int as total_reports,
         COALESCE(SUM(CASE WHEN status IN ('new', 'review', 'investigating', 'escalated', 'pending', 'Under review') THEN 1 ELSE 0 END), 0)::int as pending_reports,
         COALESCE(SUM(CASE WHEN status IN ('valid', 'resolved') THEN 1 ELSE 0 END), 0)::int as resolved_reports,
         COALESCE(SUM(CASE WHEN status = 'invalid' THEN 1 ELSE 0 END), 0)::int as discarded_reports
@@ -180,7 +180,7 @@ router.get("/heatmap", async (req, res) => {
     const result = await pool.query(`
       SELECT id, latitude, longitude, risk_score, concern_type
       FROM reports
-      WHERE latitude IS NOT NULL AND longitude IS NOT NULL AND ${regionFilter}
+      WHERE latitude IS NOT NULL AND longitude IS NOT NULL AND status != 'invalid' AND ${regionFilter}
     `, params);
 
     res.json({ success: true, points: result.rows });

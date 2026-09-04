@@ -132,13 +132,13 @@ function VerifyContent() {
 
     const fetchRestaurants = async (lat, lng) => {
       setUserLocation({ lat, lng });
-      setLoadingText("Scanning live satellite data...");
+      setLoadingText("Scanning nearby businesses...");
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout for API
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
         
-        // Always fetch max radius (25km) and up to 150 places to avoid changing results on filter
-        const query = `[out:json];(node["amenity"~"restaurant|cafe"](around:25000,${lat},${lng});node["tourism"="hotel"](around:25000,${lat},${lng}););out body 150;`;
+        // Fetch restaurants, cafes, hotels within 25km - simple query that works reliably
+        const query = `[out:json];(node["amenity"~"restaurant|cafe|fast_food"](around:25000,${lat},${lng});node["tourism"~"hotel|guest_house"](around:25000,${lat},${lng}););out body 200;`;
         const res = await fetch("https://overpass-api.de/api/interpreter?data=" + encodeURIComponent(query), {
           signal: controller.signal
         });
@@ -149,22 +149,46 @@ function VerifyContent() {
         const data = await res.json();
         const liveData = data.elements
           .filter(e => e.tags && e.tags.name)
-          .map(e => ({
-            id: "YATRA-" + e.id,
-            name: e.tags.name,
-            type: e.tags.tourism === "hotel" ? "Hotel" : (e.tags.amenity === "cafe" ? "Cafe" : "Restaurant"),
-            category: e.tags.tourism === "hotel" ? "hotel" : "restaurant",
-            lat: e.lat,
-            lng: e.lon,
-            place: e.tags["addr:street"] || e.tags["addr:city"] || "Local Area",
-            status: (e.id % 3 === 0) ? "Unverified" : "Verified",
-            color: (e.id % 3 === 0) ? "bg-rose-100 text-rose-600" : "bg-teal-100 text-teal-700"
-          }));
-          
-        setRealBusinesses(liveData.length > 0 ? liveData : businesses);
+          .map(e => {
+            let type = "Restaurant", category = "restaurant";
+            if (e.tags.tourism) { type = "Hotel"; category = "hotel"; }
+            if (e.tags.amenity === "cafe") { type = "Cafe"; category = "restaurant"; }
+            if (e.tags.amenity === "fast_food") { type = "Fast Food"; category = "restaurant"; }
+            return {
+              id: "YATRA-" + e.id,
+              name: e.tags.name,
+              type,
+              category,
+              lat: e.lat,
+              lng: e.lon,
+              place: e.tags["addr:street"] || e.tags["addr:city"] || "Local Area",
+              status: (e.id % 3 === 0) ? "Unverified" : "Verified",
+              color: (e.id % 3 === 0) ? "bg-rose-100 text-rose-600" : "bg-teal-100 text-teal-700"
+            };
+          });
+        setRealBusinesses(liveData);
       } catch (err) {
-        console.error(err);
-        setRealBusinesses(businesses); // Use dummy data if API fails or timeouts
+        console.error("Overpass API failed, retrying...", err);
+        // Retry once with simpler query
+        try {
+          const query2 = `[out:json];node["amenity"~"restaurant|cafe"](around:25000,${lat},${lng});out body 150;`;
+          const res2 = await fetch("https://overpass-api.de/api/interpreter?data=" + encodeURIComponent(query2));
+          const data2 = await res2.json();
+          const retryData = data2.elements
+            .filter(e => e.tags && e.tags.name)
+            .map(e => ({
+              id: "YATRA-" + e.id, name: e.tags.name,
+              type: e.tags.amenity === "cafe" ? "Cafe" : "Restaurant", category: "restaurant",
+              lat: e.lat, lng: e.lon,
+              place: e.tags["addr:street"] || e.tags["addr:city"] || "Local Area",
+              status: (e.id % 3 === 0) ? "Unverified" : "Verified",
+              color: (e.id % 3 === 0) ? "bg-rose-100 text-rose-600" : "bg-teal-100 text-teal-700"
+            }));
+          setRealBusinesses(retryData);
+        } catch (err2) {
+          console.error("Retry also failed:", err2);
+          setRealBusinesses([]);
+        }
       } finally {
         setNearMeActive(true);
         setLocating(false);
@@ -242,7 +266,7 @@ function VerifyContent() {
   }, [qrScannerOpen, scanResult]);
 
   // Build filtered + distance-annotated list
-  let results = (nearMeActive ? realBusinesses : businesses)
+  let results = realBusinesses
     .map((b) => {
       const distance =
         userLocation && nearMeActive

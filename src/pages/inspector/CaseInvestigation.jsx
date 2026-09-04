@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth";
 import { API_BASE } from "../../config";
-import { ArrowLeft, Clock, ShieldAlert, CheckCircle, MapPin, Building, Phone, User as UserIcon, Sparkles } from "lucide-react";
+import { ArrowLeft, Clock, ShieldAlert, CheckCircle, MapPin, Building, Phone, User as UserIcon, Sparkles, Ban } from "lucide-react";
 
 export function CaseInvestigation() {
   const { id } = useParams();
@@ -213,6 +213,13 @@ export function CaseInvestigation() {
                 className="w-full py-2.5 rounded-xl bg-teal-500 hover:bg-teal-600 text-teal-950 font-bold text-sm transition disabled:opacity-50 flex justify-center items-center gap-2"
               >
                 <CheckCircle size={16} /> Mark Resolved
+              </button>
+              <button 
+                disabled={submitting}
+                onClick={() => updateStatus('invalid')}
+                className="w-full py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-bold text-sm transition disabled:opacity-50 flex justify-center items-center gap-2 mt-2"
+              >
+                <Ban size={16} /> Reject Report
               </button>
             </div>
           </div>
