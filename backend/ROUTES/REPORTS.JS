@@ -13,7 +13,10 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "dummy");
 async function analyzeRiskAsync(reportId, concern_type, description, filePath, mimeType) {
   if (!process.env.GEMINI_API_KEY) return;
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }); // gemini-1.5 supports multimodal
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-1.5-flash",
+      generationConfig: { responseMimeType: "application/json" }
+    });
     const prompt = `
       You are an AI Inspector for the YatraSetu tourist safety platform.
       Analyze the following tourist report and determine the fraud/safety risk severity.
@@ -21,12 +24,16 @@ async function analyzeRiskAsync(reportId, concern_type, description, filePath, m
       Description: "${description}"
       ${filePath ? "An image has also been attached as evidence. Please analyze it visually." : ""}
       
-      Respond strictly with a JSON object exactly in this format:
+      Important Scoring Guidelines:
+      - Minor complaints (bad service, mild pricing issues): 0 to 20
+      - Clear Fraud/Scams (fake GST, illegal taxes, intentional overcharging): 50 to 80
+      - Severe Safety Threats / Harassment: 80 to 90
+      
+      Respond STRICTLY with a valid JSON object in this exact format:
       {
-        "ai_risk_modifier": <number between -10 and +40 based on severity>,
+        "ai_risk_modifier": <number between 0 and 90 based on severity>,
         "ai_reasoning": "<short 1-sentence explanation of why this score was given>"
       }
-      Do not include markdown or backticks in the response.
     `;
     
     let contentParts = [prompt];
@@ -41,11 +48,17 @@ async function analyzeRiskAsync(reportId, concern_type, description, filePath, m
     }
 
     const result = await model.generateContent(contentParts);
-    let text = result.response.text().trim();
-    if (text.startsWith('```json')) text = text.replace(/```json/g, '').replace(/```/g, '').trim();
-    if (text.startsWith('```')) text = text.replace(/```/g, '').trim();
+    const text = result.response.text().trim();
     
-    const parsed = JSON.parse(text);
+    let parsed;
+    try {
+      parsed = JSON.parse(text);
+    } catch (parseErr) {
+      // Fallback robust parsing if API ignores responseMimeType
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : { ai_risk_modifier: 0, ai_reasoning: "AI analysis failed to parse." };
+    }
+    
     const modifier = typeof parsed.ai_risk_modifier === 'number' ? parsed.ai_risk_modifier : 0;
     const reasoning = parsed.ai_reasoning || "AI analysis completed.";
     
