@@ -62,11 +62,15 @@ app.use((req, res) => {
 });
 
 // Start only after required database tables have been created.
-migrate()
-  .then(() => app.listen(PORT, () => {
-    console.log(`YatraSetu backend running on http://localhost:${PORT}`);
-  }))
-  .catch((error) => {
-    console.error("Unable to start backend:", error.message);
-    process.exit(1);
-  });
+if (require.main === module) {
+  migrate()
+    .then(() => app.listen(PORT, () => {
+      console.log(`YatraSetu backend running on http://localhost:${PORT}`);
+    }))
+    .catch((error) => {
+      console.error("Unable to start backend:", error.message);
+      process.exit(1);
+    });
+}
+
+module.exports = app;

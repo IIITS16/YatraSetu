@@ -1,6 +1,7 @@
 const express = require("express");
 const pool = require("../db");
 const { requireAuth } = require("../middleware/auth");
+const realtimeHub = require("../services/realtime");
 
 const router = express.Router();
 
@@ -8,7 +9,21 @@ const router = express.Router();
 router.post("/", requireAuth, async (req, res) => {
   try {
     const { concern_type, description, latitude, longitude, business_name, region } = req.body;
-    let mediaUrls = [];
+
+    // 0. Deduplication guard: Prevent double submission if identical request arrived within 5s
+    const existing = await pool.query(`
+      SELECT * FROM reports 
+      WHERE user_id = $1 
+        AND concern_type = $2 
+        AND (business_name = $3 OR (business_name IS NULL AND $3 IS NULL))
+        AND description = $4
+        AND created_at > NOW() - INTERVAL '5 seconds'
+      ORDER BY created_at DESC LIMIT 1
+    `, [req.user.id, concern_type, business_name || null, description]);
+
+    if (existing.rowCount > 0) {
+      return res.json({ success: true, report: existing.rows[0], deduplicated: true });
+    }
 
     // 1. Detect or Create Business Record
     let bId = null;
@@ -34,24 +49,79 @@ router.post("/", requireAuth, async (req, res) => {
       riskScore += 50;
     }
 
-    // 2. Insert Report
+    // 2. Sequential Inspector Assignment (Thread-safe via PostgreSQL atomic cursor row-lock)
+    let assignedInspectorId = null;
+    const normalizedRegion = region || "Jaipur South";
+
+    // Find candidate inspectors for this region (handling Amer alias)
+    let candidateInspectors = await pool.query(`
+      SELECT id, name, email, region 
+      FROM users 
+      WHERE role = 'inspector' 
+        AND (
+          region = $1 
+          OR ($1 = 'Amer' AND region = 'Amer / Old City') 
+          OR ($1 = 'Amer / Old City' AND region = 'Amer')
+        )
+      ORDER BY id
+    `, [normalizedRegion]);
+
+    // If no inspector assigned specifically to this region, fallback to all active inspectors
+    if (candidateInspectors.rowCount === 0) {
+      candidateInspectors = await pool.query(`
+        SELECT id, name, email, region 
+        FROM users 
+        WHERE role = 'inspector' 
+        ORDER BY id
+      `);
+    }
+
+    if (candidateInspectors.rowCount === 1) {
+      assignedInspectorId = candidateInspectors.rows[0].id;
+    } else if (candidateInspectors.rowCount > 1) {
+      // Atomic sequential round-robin using ON CONFLICT DO UPDATE
+      const numInspectors = candidateInspectors.rowCount;
+      const cursorRes = await pool.query(`
+        INSERT INTO inspector_assignment_cursors (region, last_assigned_index, updated_at)
+        VALUES ($1, 0, NOW())
+        ON CONFLICT (region)
+        DO UPDATE SET 
+          last_assigned_index = (inspector_assignment_cursors.last_assigned_index + 1) % $2,
+          updated_at = NOW()
+        RETURNING last_assigned_index
+      `, [normalizedRegion, numInspectors]);
+
+      const cursorIndex = cursorRes.rows[0].last_assigned_index;
+      assignedInspectorId = candidateInspectors.rows[cursorIndex].id;
+    }
+
+    // 3. Insert Report with assigned_to
     const result = await pool.query(
       `INSERT INTO reports 
-        (user_id, concern_type, description, latitude, longitude, business_name, region, status, risk_score, business_id) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 'new', $8, $9) RETURNING *`,
-      [req.user.id, concern_type, description, latitude, longitude, business_name, region, riskScore, bId]
+        (user_id, concern_type, description, latitude, longitude, business_name, region, status, risk_score, business_id, assigned_to) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'new', $8, $9, $10) RETURNING *`,
+      [req.user.id, concern_type, description, latitude, longitude, business_name, region, riskScore, bId, assignedInspectorId]
     );
 
-    // 3. Optional: Create an Alert for inspectors in that region
-    await pool.query(`
-      INSERT INTO alerts (region, message, type)
-      VALUES ($1, $2, $3)
-    `, [region, `New high-priority report at ${business_name || 'unknown'}`, 'warning']);
+    const savedReport = result.rows[0];
 
-    res.json({ success: true, report: result.rows[0] });
+    // 4. Create an Alert for inspectors in that region
+    await pool.query(`
+      INSERT INTO alerts (user_id, region, message, type)
+      VALUES ($1, $2, $3, $4)
+    `, [assignedInspectorId, region, `New report assigned at ${business_name || 'unknown location'}`, 'warning']);
+
+    // 5. Broadcast to Realtime SSE Hub for instant UI refresh without manual reload
+    realtimeHub.broadcast({
+      type: "NEW_REPORT",
+      report: savedReport,
+      assignedTo: assignedInspectorId,
+      region: region
+    }, assignedInspectorId, region);
+
+    res.json({ success: true, report: savedReport });
   } catch (err) {
     console.error("REPORT ERROR:", err);
-    require('fs').appendFileSync('error.log', err.stack + '\\n');
     res.status(500).json({ success: false, message: err.message, stack: err.stack });
   }
 });

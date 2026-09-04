@@ -255,15 +255,31 @@ router.get("/me", requireAuth, async (req, res) => {
     let statsResult;
     
     if (req.user.role === 'inspector' || req.user.role === 'government') {
+      const isGov = req.user.role === "government";
+      const clause = isGov ? "1=1" : `(
+        assigned_to = $1 
+        OR (assigned_to IS NULL AND (
+          region = $2 
+          OR ($2 = 'Amer' AND region = 'Amer / Old City') 
+          OR ($2 = 'Amer / Old City' AND region = 'Amer')
+        ))
+      )`;
+      const params = isGov ? [] : [req.user.id, req.user.region || ''];
+
       statsResult = await pool.query(`
         SELECT 
           COUNT(*)::int as total,
+          COUNT(*)::int as total_reports,
           COALESCE(SUM(CASE WHEN status IN ('valid', 'resolved') THEN 1 ELSE 0 END), 0)::int as valid_count,
-          COALESCE(SUM(CASE WHEN status = 'invalid' THEN 1 ELSE 0 END), 0)::int as invalid_count,
-          COALESCE(SUM(CASE WHEN status IN ('new', 'review', 'investigating', 'escalated', 'pending', 'Under review') THEN 1 ELSE 0 END), 0)::int as pending_count
+          COALESCE(SUM(CASE WHEN status IN ('valid', 'resolved') THEN 1 ELSE 0 END), 0)::int as resolved_reports,
+          COALESCE(SUM(CASE WHEN status IN ('invalid', 'discarded') THEN 1 ELSE 0 END), 0)::int as invalid_count,
+          COALESCE(SUM(CASE WHEN status IN ('invalid', 'discarded') THEN 1 ELSE 0 END), 0)::int as discarded_reports,
+          COALESCE(SUM(CASE WHEN status IN ('new', 'review', 'investigating', 'escalated', 'pending', 'Under review') THEN 1 ELSE 0 END), 0)::int as pending_count,
+          COALESCE(SUM(CASE WHEN status IN ('new', 'review', 'investigating', 'escalated', 'pending', 'Under review') THEN 1 ELSE 0 END), 0)::int as pending_reports,
+          COALESCE(SUM(CASE WHEN risk_score >= 60 AND status IN ('new', 'review', 'investigating', 'escalated', 'pending', 'Under review') THEN 1 ELSE 0 END), 0)::int as high_risk_reports
         FROM reports 
-        WHERE ($1::text = 'all' OR region = $1)
-      `, [req.user.region || 'all']);
+        WHERE ${clause}
+      `, params);
     } else {
       statsResult = await pool.query(`
         SELECT 

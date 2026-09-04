@@ -23,9 +23,9 @@ export function InspectorReports() {
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  async function fetchReports() {
+  async function fetchReports(isBackground = false) {
     try {
-      setLoading(true);
+      if (!isBackground) setLoading(true);
       const res = await fetch(`${API_BASE}/inspector/reports`, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -36,12 +36,45 @@ export function InspectorReports() {
     } catch (err) {
       console.error("Failed to fetch reports", err);
     } finally {
-      setLoading(false);
+      if (!isBackground) setLoading(false);
     }
   }
 
   useEffect(() => {
-    if (token) fetchReports();
+    if (!token) return;
+
+    fetchReports(false);
+
+    // Resilient background polling every 3 seconds
+    const interval = setInterval(() => {
+      fetchReports(true);
+    }, 3000);
+
+    // Window focus revalidation
+    const handleFocus = () => fetchReports(true);
+    window.addEventListener("focus", handleFocus);
+
+    // Realtime SSE EventSource
+    let eventSource = null;
+    try {
+      eventSource = new EventSource(`${API_BASE}/inspector/stream?token=${encodeURIComponent(token)}`);
+      eventSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data?.type === "NEW_REPORT" || data?.type === "REPORT_REVIEWED") {
+            fetchReports(true);
+          }
+        } catch {}
+      };
+    } catch (e) {
+      console.error("SSE connection error:", e);
+    }
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", handleFocus);
+      if (eventSource) eventSource.close();
+    };
   }, [token]);
 
   const filteredReports = reports.filter(r => {
@@ -54,7 +87,8 @@ export function InspectorReports() {
     // 2. Status filter
     if (filterStatus !== "all") {
       if (filterStatus === "pending") {
-        if (r.status !== "pending" && r.status !== "Under review") return false;
+        const pendingStatuses = ["pending", "Under review", "new", "review", "investigating"];
+        if (!pendingStatuses.includes(r.status)) return false;
       } else if (r.status !== filterStatus) {
         return false;
       }

@@ -17,16 +17,59 @@ export function Profile() {
   const [liveStats, setLiveStats] = useState(null);
 
   useEffect(() => {
-    if (user?.role === "inspector" || user?.role === "government") {
-      fetch(`${API_BASE}/inspector/stats`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) setLiveStats(data.stats);
-      })
-      .catch(console.error);
+    if (!token) return;
+
+    let isMounted = true;
+
+    async function refreshStats() {
+      if (user?.role === "inspector" || user?.role === "government") {
+        try {
+          const res = await fetch(`${API_BASE}/inspector/stats`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          const data = await res.json();
+          if (isMounted && data.success) {
+            setLiveStats(data.stats);
+          }
+        } catch (err) {
+          console.error("Profile stats fetch error:", err);
+        }
+      }
     }
+
+    refreshStats();
+
+    // 3-second resilient polling
+    const interval = setInterval(refreshStats, 3000);
+
+    // Revalidate on focus
+    const onFocus = () => refreshStats();
+    window.addEventListener("focus", onFocus);
+
+    // Realtime SSE listener
+    let eventSource = null;
+    if (user?.role === "inspector" || user?.role === "government") {
+      try {
+        eventSource = new EventSource(`${API_BASE}/inspector/stream?token=${encodeURIComponent(token)}`);
+        eventSource.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data?.type === "NEW_REPORT" || data?.type === "REPORT_REVIEWED") {
+              refreshStats();
+            }
+          } catch {}
+        };
+      } catch (e) {
+        console.error("SSE error in Profile:", e);
+      }
+    }
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+      if (eventSource) eventSource.close();
+    };
   }, [user?.role, token]);
 
   async function handleSave(e) {

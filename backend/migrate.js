@@ -119,6 +119,16 @@ async function migrate() {
   await pool.query(`ALTER TABLE reports ADD COLUMN IF NOT EXISTS reviewed_by INTEGER REFERENCES users(id) ON DELETE SET NULL`);
   await pool.query(`ALTER TABLE reports ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ`);
   await pool.query(`ALTER TABLE reports ADD COLUMN IF NOT EXISTS reviewer_notes TEXT`);
+  await pool.query(`ALTER TABLE reports ADD COLUMN IF NOT EXISTS assigned_to INTEGER REFERENCES users(id) ON DELETE SET NULL`);
+  
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS inspector_assignment_cursors (
+      region TEXT PRIMARY KEY,
+      last_assigned_index INTEGER NOT NULL DEFAULT 0,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+  
   await pool.query(`
     DO $$ BEGIN
       IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'reports_user_id_fkey') THEN
@@ -128,6 +138,8 @@ async function migrate() {
     END $$
   `);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_reports_user_created_at ON reports (user_id, created_at DESC)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_reports_assigned_to ON reports (assigned_to)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_reports_region_status ON reports (region, status)`);
 }
 
 if (require.main === module) {

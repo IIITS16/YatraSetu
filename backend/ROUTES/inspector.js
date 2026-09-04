@@ -1,6 +1,7 @@
 const express = require("express");
 const pool = require("../db");
 const { requireAuth, requireRole } = require("../middleware/auth");
+const realtimeHub = require("../services/realtime");
 
 const router = express.Router();
 
@@ -8,20 +9,48 @@ const router = express.Router();
 router.use(requireAuth);
 router.use(requireRole("inspector", "government"));
 
+// Helper to build inspector jurisdiction / assignment filter
+function buildInspectorFilter(user, tablePrefix = "reports.") {
+  const isGov = user.role === "government";
+  if (isGov) {
+    return { clause: "1=1", params: [] };
+  }
+  const prefix = tablePrefix || "";
+  const clause = `(
+    ${prefix}assigned_to = $1 
+    OR (${prefix}assigned_to IS NULL AND (
+      ${prefix}region = $2 
+      OR ($2 = 'Amer' AND ${prefix}region = 'Amer / Old City') 
+      OR ($2 = 'Amer / Old City' AND ${prefix}region = 'Amer')
+    ))
+  )`;
+  return { clause, params: [user.id, user.region || ""] };
+}
+
+// Realtime Server-Sent Events stream for instant updates without manual refresh
+router.get("/stream", (req, res) => {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  if (typeof res.flushHeaders === "function") res.flushHeaders();
+
+  const removeClient = realtimeHub.addClient(req.user, res);
+  req.on("close", removeClient);
+});
+
 router.get("/stats", requireAuth, async (req, res) => {
   try {
-    const isGov = req.user.role === "government";
-    const regionFilter = isGov ? "1=1" : "region = $1";
-    const params = isGov ? [] : [req.user.region];
+    const { clause, params } = buildInspectorFilter(req.user, "");
 
     const statsResult = await pool.query(`
       SELECT 
         COUNT(*)::int as total_reports,
         COALESCE(SUM(CASE WHEN status IN ('new', 'review', 'investigating', 'escalated', 'pending', 'Under review') THEN 1 ELSE 0 END), 0)::int as pending_reports,
         COALESCE(SUM(CASE WHEN status IN ('valid', 'resolved') THEN 1 ELSE 0 END), 0)::int as resolved_reports,
-        COALESCE(SUM(CASE WHEN status = 'invalid' THEN 1 ELSE 0 END), 0)::int as discarded_reports
+        COALESCE(SUM(CASE WHEN status IN ('invalid', 'discarded') THEN 1 ELSE 0 END), 0)::int as discarded_reports,
+        COALESCE(SUM(CASE WHEN risk_score >= 60 AND status IN ('new', 'review', 'investigating', 'escalated', 'pending', 'Under review') THEN 1 ELSE 0 END), 0)::int as high_risk_reports
       FROM reports 
-      WHERE ${regionFilter}
+      WHERE ${clause}
     `, params);
 
     res.json({
@@ -36,14 +65,12 @@ router.get("/stats", requireAuth, async (req, res) => {
 
 router.get("/reports/recent", async (req, res) => {
   try {
-    const isGov = req.user.role === "government";
-    const regionFilter = isGov ? "1=1" : "region = $1";
-    const params = isGov ? [] : [req.user.region];
+    const { clause, params } = buildInspectorFilter(req.user, "");
 
     const reportsResult = await pool.query(`
-      SELECT id, concern_type, business_name, description, status, created_at, region
+      SELECT id, concern_type, business_name, description, status, created_at, region, latitude, longitude, risk_score, assigned_to
       FROM reports
-      WHERE ${regionFilter} AND status IN ('pending', 'Under review')
+      WHERE ${clause} AND status IN ('new', 'pending', 'Under review', 'review', 'investigating')
       ORDER BY created_at DESC
       LIMIT 5
     `, params);
@@ -60,22 +87,24 @@ router.get("/reports/recent", async (req, res) => {
 
 router.get("/reports", async (req, res) => {
   try {
-    const isGov = req.user.role === "government";
-    const regionFilter = isGov ? "1=1" : "reports.region = $1";
-    const params = isGov ? [] : [req.user.region];
+    const { clause, params } = buildInspectorFilter(req.user, "reports.");
 
     const reportsResult = await pool.query(`
       SELECT 
-        reports.id, concern_type, business_name, description, status, 
-        reports.created_at, reports.region, reviewed_at, reviewer_notes,
-        reports.risk_score, reports.business_id,
-        users.name AS reviewer_name
+        reports.id, reports.concern_type, reports.business_name, reports.description, reports.status, 
+        reports.created_at, reports.region, reports.reviewed_at, reports.reviewer_notes,
+        reports.risk_score, reports.business_id, reports.latitude, reports.longitude,
+        reports.assigned_to,
+        users.name AS reviewer_name,
+        reporter.name AS reporter_name,
+        reporter.phone AS reporter_phone
       FROM reports
       LEFT JOIN users ON reports.reviewed_by = users.id
-      WHERE ${regionFilter}
+      LEFT JOIN users reporter ON reports.user_id = reporter.id
+      WHERE ${clause}
       ORDER BY 
-        CASE WHEN status IN ('pending', 'Under review', 'new', 'review') THEN 0 ELSE 1 END,
-        risk_score DESC, 
+        CASE WHEN reports.status IN ('new', 'pending', 'Under review', 'review', 'investigating') THEN 0 ELSE 1 END,
+        reports.risk_score DESC, 
         reports.created_at DESC
     `, params);
 
@@ -105,7 +134,12 @@ router.get("/reports/:id", async (req, res) => {
     if (reportRes.rowCount === 0) return res.status(404).json({ success: false, message: "Not found" });
     const report = reportRes.rows[0];
     
-    if (!isGov && report.region !== req.user.region) {
+    const isAmer = (report.region === "Amer" && req.user.region === "Amer / Old City") ||
+                   (report.region === "Amer / Old City" && req.user.region === "Amer");
+    const isAssigned = report.assigned_to === req.user.id;
+    const isRegionMatch = report.region === req.user.region || isAmer;
+
+    if (!isGov && !isAssigned && !isRegionMatch) {
       return res.status(403).json({ success: false, message: "Forbidden" });
     }
     
@@ -136,9 +170,16 @@ router.patch("/reports/:id/review", async (req, res) => {
     }
 
     const isGov = req.user.role === "government";
-    const checkResult = await pool.query("SELECT region FROM reports WHERE id = $1", [id]);
+    const checkResult = await pool.query("SELECT region, assigned_to FROM reports WHERE id = $1", [id]);
     if (checkResult.rowCount === 0) return res.status(404).json({ success: false, message: "Report not found" });
-    if (!isGov && checkResult.rows[0].region !== req.user.region) {
+    
+    const rep = checkResult.rows[0];
+    const isAmer = (rep.region === "Amer" && req.user.region === "Amer / Old City") ||
+                   (rep.region === "Amer / Old City" && req.user.region === "Amer");
+    const isAssigned = rep.assigned_to === req.user.id;
+    const isRegionMatch = rep.region === req.user.region || isAmer;
+
+    if (!isGov && !isAssigned && !isRegionMatch) {
       return res.status(403).json({ success: false, message: "Report outside jurisdiction" });
     }
 
@@ -151,7 +192,7 @@ router.patch("/reports/:id/review", async (req, res) => {
         reviewed_by = $3, 
         reviewed_at = NOW()
       WHERE id = $4
-      RETURNING id, status, reviewer_notes, reviewed_at
+      RETURNING id, status, reviewer_notes, reviewed_at, region, assigned_to
     `, [status, reviewer_notes || null, req.user.id, id]);
 
     // Log to Action History
@@ -160,10 +201,21 @@ router.patch("/reports/:id/review", async (req, res) => {
       VALUES ($1, $2, $3, $4)
     `, [id, req.user.id, `Status updated to ${status}`, reviewer_notes]);
 
+    const updatedReport = result.rows[0];
+
+    // Broadcast review update via SSE
+    realtimeHub.broadcast({
+      type: "REPORT_REVIEWED",
+      reportId: Number(id),
+      status: updatedReport.status,
+      assignedTo: updatedReport.assigned_to,
+      region: updatedReport.region
+    }, updatedReport.assigned_to, updatedReport.region);
+
     res.json({
       success: true,
       message: "Report reviewed successfully",
-      report: result.rows[0]
+      report: updatedReport
     });
   } catch (err) {
     console.error("REVIEW REPORT ERROR:", err);

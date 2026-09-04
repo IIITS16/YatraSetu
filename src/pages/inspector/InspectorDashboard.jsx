@@ -45,8 +45,13 @@ export function InspectorDashboard() {
   const [viewMode, setViewMode] = useState("list");
 
   useEffect(() => {
-    async function fetchDashboardData() {
+    if (!token) return;
+
+    let isMounted = true;
+
+    async function fetchDashboardData(isBackground = false) {
       try {
+        if (!isBackground) setLoading(true);
         const [statsRes, reportsRes] = await Promise.all([
           fetch(`${API_BASE}/inspector/stats`, {
             headers: { Authorization: `Bearer ${token}` }
@@ -59,21 +64,56 @@ export function InspectorDashboard() {
         const statsData = await statsRes.json();
         const reportsData = await reportsRes.json();
 
-        if (statsData.success) setStats(statsData.stats);
-        if (reportsData.success) setRecentReports(reportsData.reports);
+        if (isMounted) {
+          if (statsData.success) setStats(statsData.stats);
+          if (reportsData.success) setRecentReports(reportsData.reports);
+        }
       } catch (err) {
         console.error("Dashboard fetch error:", err);
       } finally {
-        setLoading(false);
+        if (isMounted && !isBackground) {
+          setLoading(false);
+        }
       }
     }
 
-    if (token) {
-      fetchDashboardData();
+    // Initial fetch
+    fetchDashboardData(false);
+
+    // Resilient background polling every 3 seconds
+    const interval = setInterval(() => {
+      fetchDashboardData(true);
+    }, 3000);
+
+    // Revalidate on window focus
+    const handleFocus = () => fetchDashboardData(true);
+    window.addEventListener("focus", handleFocus);
+
+    // Realtime SSE EventSource connection for instant 0-second updates
+    let eventSource = null;
+    try {
+      eventSource = new EventSource(`${API_BASE}/inspector/stream?token=${encodeURIComponent(token)}`);
+      eventSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data?.type === "NEW_REPORT" || data?.type === "REPORT_REVIEWED") {
+            fetchDashboardData(true);
+          }
+        } catch {}
+      };
+    } catch (e) {
+      console.error("SSE connection error:", e);
     }
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+      window.removeEventListener("focus", handleFocus);
+      if (eventSource) eventSource.close();
+    };
   }, [token]);
 
-  if (loading) {
+  if (loading && !stats) {
     return <div className="py-20 text-center font-medium text-slate-500">Loading dashboard...</div>;
   }
 
@@ -110,7 +150,7 @@ export function InspectorDashboard() {
             <Building2 size={18} />
             <h3 className="text-xs font-bold uppercase tracking-wider">High Risk</h3>
           </div>
-          <p className="mt-2 text-3xl font-black text-amber-700">0</p>
+          <p className="mt-2 text-3xl font-black text-amber-700">{stats?.high_risk_reports || 0}</p>
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
