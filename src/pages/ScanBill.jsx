@@ -139,6 +139,7 @@ export function ScanBill() {
 
           <Link
             to="/report"
+            state={{ scannedBillData: result, billFile: file }}
             className={`mt-6 flex w-full items-center justify-center gap-2 rounded-xl py-3 font-semibold text-white transition ${
               result.requires_verification ? 'bg-rose-600 hover:bg-rose-700 shadow-lg shadow-rose-200' : 'bg-ink hover:bg-slate-800'
             }`}

@@ -45,13 +45,13 @@ export function InspectorDashboard() {
   const [viewMode, setViewMode] = useState("list");
 
   useEffect(() => {
-    async function fetchDashboardData() {
+    async function fetchDashboardData(isInitial = false) {
       try {
         const [statsRes, reportsRes] = await Promise.all([
           fetch(`${API_BASE}/inspector/stats`, {
             headers: { Authorization: `Bearer ${token}` }
           }),
-          fetch(`${API_BASE}/inspector/reports`, {
+          fetch(`${API_BASE}/inspector/reports/recent`, { // Fetch recent instead of all for dashboard
             headers: { Authorization: `Bearer ${token}` }
           })
         ]);
@@ -64,12 +64,14 @@ export function InspectorDashboard() {
       } catch (err) {
         console.error("Dashboard fetch error:", err);
       } finally {
-        setLoading(false);
+        if (isInitial) setLoading(false);
       }
     }
 
     if (token) {
-      fetchDashboardData();
+      fetchDashboardData(true);
+      const interval = setInterval(() => fetchDashboardData(false), 3000); // Poll every 3s
+      return () => clearInterval(interval);
     }
   }, [token]);
 

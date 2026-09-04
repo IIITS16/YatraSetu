@@ -34,11 +34,20 @@ router.post("/", requireAuth, async (req, res) => {
       riskScore += 50;
     }
 
-    // 2. Insert Report
+    // 2. Insert Report & Sequentially Assign safely
     const result = await pool.query(
-      `INSERT INTO reports 
-        (user_id, concern_type, description, latitude, longitude, business_name, region, status, risk_score, business_id) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 'new', $8, $9) RETURNING *`,
+      `WITH next_inspector AS (
+         SELECT id FROM users 
+         WHERE role = 'inspector' 
+         ORDER BY 
+           CASE WHEN region = $7 THEN 0 ELSE 1 END ASC,
+           (SELECT COUNT(*) FROM reports WHERE assigned_to = users.id) ASC, 
+           id ASC
+         LIMIT 1
+       )
+       INSERT INTO reports 
+        (user_id, concern_type, description, latitude, longitude, business_name, region, status, risk_score, business_id, assigned_to) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'new', $8, $9, (SELECT id FROM next_inspector)) RETURNING *`,
       [req.user.id, concern_type, description, latitude, longitude, business_name, region, riskScore, bId]
     );
 

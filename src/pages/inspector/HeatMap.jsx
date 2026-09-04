@@ -74,7 +74,7 @@ export function HeatMap() {
   const center = [26.9124, 75.8173];
 
   useEffect(() => {
-    async function fetchHeatmap() {
+    async function fetchHeatmap(isSilent = false) {
       try {
         const res = await fetch(`${API_BASE}/inspector/heatmap`, {
           headers: { Authorization: `Bearer ${token}` }
@@ -87,10 +87,15 @@ export function HeatMap() {
       } catch (err) {
         console.error("Failed to fetch heatmap", err);
       } finally {
-        setLoading(false);
+        if (!isSilent) setLoading(false);
       }
     }
-    fetchHeatmap();
+    
+    if (token) {
+      fetchHeatmap();
+      const interval = setInterval(() => fetchHeatmap(true), 3000);
+      return () => clearInterval(interval);
+    }
   }, [token]);
 
   return (

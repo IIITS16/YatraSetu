@@ -11,8 +11,8 @@ router.use(requireRole("inspector", "government"));
 router.get("/stats", requireAuth, async (req, res) => {
   try {
     const isGov = req.user.role === "government";
-    const regionFilter = isGov ? "1=1" : "region = $1";
-    const params = isGov ? [] : [req.user.region];
+    const filter = isGov ? "1=1" : "assigned_to = $1";
+    const params = isGov ? [] : [req.user.id];
 
     const statsResult = await pool.query(`
       SELECT 
@@ -21,7 +21,7 @@ router.get("/stats", requireAuth, async (req, res) => {
         COALESCE(SUM(CASE WHEN status IN ('valid', 'resolved') THEN 1 ELSE 0 END), 0)::int as resolved_reports,
         COALESCE(SUM(CASE WHEN status = 'invalid' THEN 1 ELSE 0 END), 0)::int as discarded_reports
       FROM reports 
-      WHERE ${regionFilter}
+      WHERE ${filter}
     `, params);
 
     res.json({
@@ -37,13 +37,13 @@ router.get("/stats", requireAuth, async (req, res) => {
 router.get("/reports/recent", async (req, res) => {
   try {
     const isGov = req.user.role === "government";
-    const regionFilter = isGov ? "1=1" : "region = $1";
-    const params = isGov ? [] : [req.user.region];
+    const filter = isGov ? "1=1" : "assigned_to = $1";
+    const params = isGov ? [] : [req.user.id];
 
     const reportsResult = await pool.query(`
       SELECT id, concern_type, business_name, description, status, created_at, region
       FROM reports
-      WHERE ${regionFilter} AND status IN ('pending', 'Under review')
+      WHERE ${filter} AND status IN ('pending', 'Under review', 'new', 'review', 'investigating')
       ORDER BY created_at DESC
       LIMIT 5
     `, params);
@@ -61,8 +61,8 @@ router.get("/reports/recent", async (req, res) => {
 router.get("/reports", async (req, res) => {
   try {
     const isGov = req.user.role === "government";
-    const regionFilter = isGov ? "1=1" : "reports.region = $1";
-    const params = isGov ? [] : [req.user.region];
+    const filter = isGov ? "1=1" : "reports.assigned_to = $1";
+    const params = isGov ? [] : [req.user.id];
 
     const reportsResult = await pool.query(`
       SELECT 
@@ -72,7 +72,7 @@ router.get("/reports", async (req, res) => {
         users.name AS reviewer_name
       FROM reports
       LEFT JOIN users ON reports.reviewed_by = users.id
-      WHERE ${regionFilter}
+      WHERE ${filter}
       ORDER BY 
         CASE WHEN status IN ('pending', 'Under review', 'new', 'review') THEN 0 ELSE 1 END,
         risk_score DESC, 
@@ -105,8 +105,8 @@ router.get("/reports/:id", async (req, res) => {
     if (reportRes.rowCount === 0) return res.status(404).json({ success: false, message: "Not found" });
     const report = reportRes.rows[0];
     
-    if (!isGov && report.region !== req.user.region) {
-      return res.status(403).json({ success: false, message: "Forbidden" });
+    if (!isGov && report.assigned_to !== req.user.id) {
+      return res.status(403).json({ success: false, message: "Forbidden: Not assigned to you" });
     }
     
     // Get Action History
@@ -136,10 +136,10 @@ router.patch("/reports/:id/review", async (req, res) => {
     }
 
     const isGov = req.user.role === "government";
-    const checkResult = await pool.query("SELECT region FROM reports WHERE id = $1", [id]);
+    const checkResult = await pool.query("SELECT assigned_to FROM reports WHERE id = $1", [id]);
     if (checkResult.rowCount === 0) return res.status(404).json({ success: false, message: "Report not found" });
-    if (!isGov && checkResult.rows[0].region !== req.user.region) {
-      return res.status(403).json({ success: false, message: "Report outside jurisdiction" });
+    if (!isGov && checkResult.rows[0].assigned_to !== req.user.id) {
+      return res.status(403).json({ success: false, message: "Forbidden: Not assigned to you" });
     }
 
     // Update Report

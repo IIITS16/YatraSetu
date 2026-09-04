@@ -23,9 +23,9 @@ export function InspectorReports() {
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  async function fetchReports() {
+  async function fetchReports(isSilent = false) {
     try {
-      setLoading(true);
+      if (!isSilent) setLoading(true);
       const res = await fetch(`${API_BASE}/inspector/reports`, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -36,13 +36,19 @@ export function InspectorReports() {
     } catch (err) {
       console.error("Failed to fetch reports", err);
     } finally {
-      setLoading(false);
+      if (!isSilent) setLoading(false);
     }
   }
 
   useEffect(() => {
-    if (token) fetchReports();
-  }, [token]);
+    if (token) {
+      fetchReports();
+      const interval = setInterval(() => {
+        if (!selectedReport) fetchReports(false); // Don't poll while modal is open
+      }, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [token, selectedReport]);
 
   const filteredReports = reports.filter(r => {
     // 1. Search term (matches Business or Description)

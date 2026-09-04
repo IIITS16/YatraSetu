@@ -18,14 +18,20 @@ export function Profile() {
 
   useEffect(() => {
     if (user?.role === "inspector" || user?.role === "government") {
-      fetch(`${API_BASE}/inspector/stats`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) setLiveStats(data.stats);
-      })
-      .catch(console.error);
+      const fetchStats = () => {
+        fetch(`${API_BASE}/inspector/stats`, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) setLiveStats(data.stats);
+        })
+        .catch(console.error);
+      };
+      
+      fetchStats();
+      const interval = setInterval(fetchStats, 3000);
+      return () => clearInterval(interval);
     }
   }, [user?.role, token]);
 
