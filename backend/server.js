@@ -16,6 +16,7 @@ app.use(cors({
   credentials: true,
 }));
 app.use(express.json({ limit: "1mb" }));
+app.use(express.static("public"));
 
 // Home
 app.get("/", (req, res) => {
@@ -46,12 +47,14 @@ app.get("/api/test-db", async (req, res) => {
 });
 
 const scanRouter = require("./routes/scan");
+const verifyGuideRouter = require("./routes/verify-guide");
 
 // API routes
 app.use("/api/reports", reportsRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/inspector", inspectorRouter);
 app.use("/api/scan-bill", scanRouter);
+app.use("/api/verify-guide", verifyGuideRouter);
 
 // 404
 app.use((req, res) => {

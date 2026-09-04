@@ -127,7 +127,17 @@ async function migrate() {
       END IF;
     END $$
   `);
-  await pool.query(`CREATE INDEX IF NOT EXISTS idx_reports_user_created_at ON reports (user_id, created_at DESC)`);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS guides (
+      id VARCHAR(50) PRIMARY KEY,
+      name VARCHAR(255) NOT NULL,
+      languages VARCHAR(255),
+      rating DECIMAL(3,1),
+      photo_url VARCHAR(500),
+      status VARCHAR(50) DEFAULT 'Active',
+      risk_score INTEGER DEFAULT 0
+    );
+  `);
 }
 
 if (require.main === module) {

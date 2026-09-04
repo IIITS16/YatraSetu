@@ -16,6 +16,7 @@ import {
   X,
 } from "lucide-react";
 import { businesses } from "../data";
+import { Html5QrcodeScanner } from 'html5-qrcode';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -105,6 +106,8 @@ function VerifyContent() {
   const [rangeKm, setRangeKm] = useState(5);
   const [locationError, setLocationError] = useState("");
   const [realBusinesses, setRealBusinesses] = useState([]);
+  const [qrScannerOpen, setQrScannerOpen] = useState(false);
+  const [scanResult, setScanResult] = useState(null);
 
   function ChangeView({ center }) {
     const map = useMap();
@@ -205,6 +208,38 @@ function VerifyContent() {
       );
     }
   }
+
+  // Initialize QR Scanner when modal opens
+  useEffect(() => {
+    if (qrScannerOpen && !scanResult) {
+      const scanner = new Html5QrcodeScanner("reader", { 
+        qrbox: { width: 250, height: 250 }, 
+        fps: 5 
+      }, false);
+      
+      scanner.render(
+        async (decodedText) => {
+          scanner.clear();
+          try {
+            const res = await fetch("http://localhost:5000/api/verify-guide", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ token: decodedText })
+            });
+            const data = await res.json();
+            setScanResult(data);
+          } catch(e) {
+            setScanResult({ success: false, status: "Network Error", message: e.message });
+          }
+        },
+        (error) => { /* ignore */ }
+      );
+      
+      return () => { 
+        scanner.clear().catch(e => console.log(e)); 
+      };
+    }
+  }, [qrScannerOpen, scanResult]);
 
   // Build filtered + distance-annotated list
   let results = (nearMeActive ? realBusinesses : businesses)
@@ -456,7 +491,10 @@ function VerifyContent() {
       </div>
 
       {/* Scan QR */}
-      <button className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-sea">
+      <button 
+        onClick={() => setQrScannerOpen(true)}
+        className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-sea hover:text-teal-700 transition"
+      >
         <ScanLine size={17} /> Scan provider QR instead
       </button>
 
@@ -468,6 +506,63 @@ function VerifyContent() {
           report suspicious activity with evidence.
         </p>
       </div>
+
+      {/* MVP Demo: Fake QR Scanner Modal */}
+      {qrScannerOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl relative overflow-hidden">
+            <button 
+              onClick={() => { setQrScannerOpen(false); setScanResult(null); }}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"
+            >
+              <X size={20} />
+            </button>
+            
+            <h3 className="text-lg font-bold text-ink mb-4 text-center">Scan Guide ID / QR</h3>
+            
+            {!scanResult ? (
+              <div className="relative w-full overflow-hidden rounded-xl bg-slate-800">
+                <div id="reader" className="w-full h-full bg-black"></div>
+                <p className="absolute bottom-4 left-0 w-full text-center text-xs text-white/90 z-50 drop-shadow-md">Point camera at Guide's Govt QR Code</p>
+              </div>
+            ) : scanResult.success ? (
+              <div className="text-center py-6">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-teal-100 text-teal-600 mb-4">
+                  <CheckCircle2 size={32} />
+                </div>
+                <h4 className="text-xl font-bold text-ink">{scanResult.guide.name}</h4>
+                <p className="text-sm font-semibold text-teal-600 mt-1">Govt Approved Guide</p>
+                <div className="mt-4 rounded-lg bg-slate-50 p-3 text-left text-xs text-slate-600 space-y-2">
+                  <p><span className="font-semibold text-slate-400 w-20 inline-block">ID:</span> {scanResult.guide.id}</p>
+                  <p><span className="font-semibold text-slate-400 w-20 inline-block">Language:</span> {scanResult.guide.languages}</p>
+                  <p><span className="font-semibold text-slate-400 w-20 inline-block">Rating:</span> ⭐ {scanResult.guide.rating}/5.0</p>
+                  <p><span className="font-semibold text-slate-400 w-20 inline-block">Risk Score:</span> {scanResult.guide.risk_score} (Anomalies)</p>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-6">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-rose-100 text-rose-600 mb-4">
+                  <CircleAlert size={32} />
+                </div>
+                <h4 className="text-xl font-bold text-rose-600">Verification Failed</h4>
+                <p className="text-sm font-semibold text-slate-600 mt-2">{scanResult.status || "Error"}</p>
+                <div className="mt-4 rounded-lg bg-rose-50 p-3 text-left text-xs text-rose-700">
+                  <p>{scanResult.message}</p>
+                </div>
+              </div>
+            )}
+            
+            {scanResult && (
+              <button 
+                onClick={() => setScanResult(null)}
+                className="mt-6 w-full rounded-xl bg-slate-100 py-3 text-sm font-semibold text-slate-600 hover:bg-slate-200"
+              >
+                Scan Another QR
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
