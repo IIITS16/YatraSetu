@@ -9,7 +9,6 @@ backend/.env
 backend/.env.local
 
 # Build outputs
-dist/
 dist-ssr/
 NODE_MODULES
 build/

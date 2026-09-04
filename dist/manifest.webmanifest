@@ -1,0 +1,10 @@
+{
+  "name": "YatraSetu",
+  "short_name": "YatraSetu",
+  "description": "Tourism safety and verification service",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5f8f7",
+  "theme_color": "#073b4c",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}
