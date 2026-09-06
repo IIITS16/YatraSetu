@@ -62,13 +62,17 @@ export function BusinessDirectory() {
                 <div className="h-10 w-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-500 group-hover:bg-teal-50 group-hover:text-teal-600 transition">
                   <Building2 size={20} />
                 </div>
-                {b.base_risk_score > 50 ? (
+                {b.base_risk_score >= 61 ? (
                   <span className="flex items-center gap-1 text-xs font-bold text-rose-600 bg-rose-50 px-2 py-1 rounded-lg border border-rose-100">
                     <AlertTriangle size={12} /> High Risk
                   </span>
+                ) : b.base_risk_score >= 31 ? (
+                  <span className="flex items-center gap-1 text-xs font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded-lg border border-amber-100">
+                    <AlertTriangle size={12} /> Medium Risk
+                  </span>
                 ) : (
                   <span className="flex items-center gap-1 text-xs font-bold text-teal-600 bg-teal-50 px-2 py-1 rounded-lg border border-teal-100">
-                    <ShieldCheck size={12} /> Standard
+                    <ShieldCheck size={12} /> Low Risk
                   </span>
                 )}
               </div>
@@ -83,7 +87,7 @@ export function BusinessDirectory() {
                 </div>
                 <div className="text-right">
                   <p className="text-xs font-semibold uppercase text-slate-400">Risk Score</p>
-                  <p className={`font-bold ${b.base_risk_score > 50 ? 'text-rose-600' : 'text-slate-700'}`}>
+                  <p className={`font-bold ${b.base_risk_score >= 61 ? 'text-rose-600' : b.base_risk_score >= 31 ? 'text-amber-600' : 'text-slate-700'}`}>
                     {b.base_risk_score}/100
                   </p>
                 </div>

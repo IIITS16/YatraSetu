@@ -112,7 +112,7 @@ export function InspectorDashboard() {
             <Building2 size={18} />
             <h3 className="text-xs font-bold uppercase tracking-wider">High Risk</h3>
           </div>
-          <p className="mt-2 text-3xl font-black text-amber-700">0</p>
+          <p className="mt-2 text-3xl font-black text-amber-700">{stats?.high_risk_reports || 0}</p>
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">

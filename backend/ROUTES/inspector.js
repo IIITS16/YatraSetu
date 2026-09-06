@@ -19,7 +19,8 @@ router.get("/stats", requireAuth, async (req, res) => {
         COALESCE(SUM(CASE WHEN status != 'invalid' THEN 1 ELSE 0 END), 0)::int as total_reports,
         COALESCE(SUM(CASE WHEN status IN ('new', 'review', 'investigating', 'escalated', 'pending', 'Under review') THEN 1 ELSE 0 END), 0)::int as pending_reports,
         COALESCE(SUM(CASE WHEN status IN ('valid', 'resolved') THEN 1 ELSE 0 END), 0)::int as resolved_reports,
-        COALESCE(SUM(CASE WHEN status = 'invalid' THEN 1 ELSE 0 END), 0)::int as discarded_reports
+        COALESCE(SUM(CASE WHEN status = 'invalid' THEN 1 ELSE 0 END), 0)::int as discarded_reports,
+        COALESCE(SUM(CASE WHEN risk_score >= 61 AND status != 'invalid' THEN 1 ELSE 0 END), 0)::int as high_risk_reports
       FROM reports 
       WHERE ${filter}
     `, params);
@@ -142,17 +143,16 @@ router.patch("/reports/:id/review", async (req, res) => {
       return res.status(403).json({ success: false, message: "Forbidden: Not assigned to you" });
     }
 
-    // Update Report
+    // Update Report Status
     const result = await pool.query(`
       UPDATE reports 
       SET 
         status = $1, 
-        reviewer_notes = $2, 
-        reviewed_by = $3, 
+        reviewed_by = $2, 
         reviewed_at = NOW()
-      WHERE id = $4
+      WHERE id = $3
       RETURNING id, status, reviewer_notes, reviewed_at
-    `, [status, reviewer_notes || null, req.user.id, id]);
+    `, [status, req.user.id, id]);
 
     // Log to Action History
     await pool.query(`
@@ -180,7 +180,7 @@ router.get("/heatmap", async (req, res) => {
     const result = await pool.query(`
       SELECT id, latitude, longitude, risk_score, concern_type
       FROM reports
-      WHERE latitude IS NOT NULL AND longitude IS NOT NULL AND status != 'invalid' AND ${regionFilter}
+      WHERE latitude IS NOT NULL AND longitude IS NOT NULL AND status NOT IN ('invalid', 'resolved') AND ${regionFilter}
     `, params);
 
     res.json({ success: true, points: result.rows });

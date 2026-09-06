@@ -79,10 +79,9 @@ export function InspectorReports() {
 
     // 6. Risk Level
     if (filterRisk !== "all") {
-      const highRisk = ["Safety concern", "Harassment or misbehavior"];
-      const isHigh = highRisk.includes(r.concern_type);
-      if (filterRisk === "high" && !isHigh) return false;
-      if (filterRisk === "low" && isHigh) return false;
+      if (filterRisk === "low" && r.risk_score > 30) return false;
+      if (filterRisk === "medium" && (r.risk_score < 31 || r.risk_score > 60)) return false;
+      if (filterRisk === "high" && r.risk_score < 61) return false;
     }
 
     return true;
@@ -221,8 +220,9 @@ export function InspectorReports() {
             <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">Risk Level</label>
             <select value={filterRisk} onChange={e => setFilterRisk(e.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-teal-500 bg-white">
               <option value="all">All Levels</option>
-              <option value="high">High Risk</option>
-              <option value="low">Standard Risk</option>
+              <option value="high">High Risk (61+)</option>
+              <option value="medium">Medium Risk (31-60)</option>
+              <option value="low">Low Risk (0-30)</option>
             </select>
           </div>
           <div>

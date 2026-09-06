@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ArrowRight, Sparkles, Upload, FileText, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { API_BASE } from "../config";
 
 export function ScanBill() {
   const [file, setFile] = useState(null);
@@ -15,7 +16,7 @@ export function ScanBill() {
     formData.append("bill", file);
 
     try {
-      const res = await fetch(`http://localhost:5000/api/scan-bill`, {
+      const res = await fetch(`${API_BASE}/scan-bill`, {
         method: "POST",
         body: formData,
       });

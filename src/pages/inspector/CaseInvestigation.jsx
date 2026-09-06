@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth";
 import { API_BASE } from "../../config";
-import { ArrowLeft, Clock, ShieldAlert, CheckCircle, MapPin, Building, Phone, User as UserIcon, Sparkles, Ban } from "lucide-react";
+import { ArrowLeft, Clock, ShieldAlert, CheckCircle, MapPin, Building, Phone, User as UserIcon, Sparkles, Ban, AlertTriangle } from "lucide-react";
 
 export function CaseInvestigation() {
   const { id } = useParams();
@@ -123,15 +123,73 @@ export function CaseInvestigation() {
                 <p className="text-slate-700 bg-slate-50 p-4 rounded-xl border border-slate-100">{report.description}</p>
               </div>
 
-              {report.reviewer_notes && report.reviewer_notes.startsWith("AI Insight:") && (
-                <div className="mt-6 rounded-xl border border-purple-200 bg-purple-50 p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Sparkles size={16} className="text-purple-600" />
-                    <h3 className="text-sm font-bold text-purple-900 uppercase tracking-wider">AI Risk Analysis</h3>
+              {report.media_urls && (
+                <div>
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Attached Evidence</p>
+                  <div className="flex gap-4 overflow-x-auto pb-2">
+                    {(() => {
+                      try {
+                        const urls = JSON.parse(report.media_urls);
+                        if (!urls || urls.length === 0) return <p className="text-sm text-slate-400 italic">No files attached</p>;
+                        return urls.map((url, i) => (
+                          <a key={i} href={`${API_BASE.replace('/api', '')}${url}`} target="_blank" rel="noreferrer" className="block shrink-0">
+                            <img src={`${API_BASE.replace('/api', '')}${url}`} alt="Evidence" className="h-32 w-32 object-cover rounded-xl border border-slate-200 shadow-sm hover:opacity-90 transition" />
+                          </a>
+                        ));
+                      } catch(e) {
+                        return <p className="text-sm text-slate-400 italic">No files attached</p>;
+                      }
+                    })()}
                   </div>
-                  <p className="text-sm text-purple-800">{report.reviewer_notes}</p>
                 </div>
               )}
+
+              {(() => {
+                let aiData = null;
+                if (report.reviewer_notes?.startsWith("AI_JSON:")) {
+                  try { aiData = JSON.parse(report.reviewer_notes.replace("AI_JSON:", "").trim()); } catch(e) {}
+                } else if (report.reviewer_notes?.startsWith("AI Insight:")) {
+                  aiData = { reasoning: report.reviewer_notes.replace("AI Insight:", "").trim() };
+                }
+                
+                if (!aiData) return null;
+                return (
+                  <div className="mt-6 rounded-xl border border-purple-200 bg-purple-50 overflow-hidden">
+                    <div className="bg-purple-100/50 p-4 border-b border-purple-200 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Sparkles size={18} className="text-purple-600" />
+                        <h3 className="font-bold text-purple-900 uppercase tracking-wider text-sm">AI Risk Analysis</h3>
+                      </div>
+                      {aiData.modifier > 0 && (
+                        <span className="bg-rose-100 text-rose-700 px-2.5 py-1 rounded-full text-xs font-bold">
+                          +{aiData.modifier} Risk Points
+                        </span>
+                      )}
+                    </div>
+                    <div className="p-4">
+                      {aiData.reasoning && (
+                        <p className="text-sm text-purple-900 mb-4 font-medium leading-relaxed">{aiData.reasoning}</p>
+                      )}
+                      {aiData.signals && aiData.signals.length > 0 && (
+                        <div>
+                          <p className="text-xs font-bold text-purple-800 uppercase tracking-wider mb-2">Detected Signals:</p>
+                          <ul className="space-y-2">
+                            {aiData.signals.map((s, i) => (
+                              <li key={i} className="flex items-start gap-2 text-sm text-purple-800 bg-purple-100/50 p-2 rounded-lg">
+                                <CheckCircle size={16} className="text-purple-600 shrink-0" />
+                                <span>{s}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                    <div className="bg-purple-100/40 p-3 border-t border-purple-200 text-xs text-purple-700/80 text-center font-medium flex items-center justify-center gap-2">
+                      <AlertTriangle size={14} /> Score is a triage signal, not legal proof of fraud.
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           </div>
 

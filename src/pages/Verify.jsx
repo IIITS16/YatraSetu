@@ -18,6 +18,7 @@ import {
 import { businesses } from "../data";
 import { Html5QrcodeScanner } from 'html5-qrcode';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
+import { API_BASE } from "../config";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -245,7 +246,7 @@ function VerifyContent() {
         async (decodedText) => {
           scanner.clear();
           try {
-            const res = await fetch("http://localhost:5000/api/verify-guide", {
+            const res = await fetch(`${API_BASE}/verify-guide`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ token: decodedText })

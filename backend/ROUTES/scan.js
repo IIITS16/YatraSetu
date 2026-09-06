@@ -39,7 +39,7 @@ router.post("/", upload.single("bill"), async (req, res) => {
       1. GSTIN & Identity: Is there a valid 15-character GSTIN? (Note: Missing GSTIN alone must NOT mark an informal bill as fake).
       2. Tax Math & Logic (CRITICAL): Do NOT just check the final addition. You MUST calculate the percentages. If it says "10% Service Charge", verify it is exactly 10% of the subtotal. If the percentage calculation is wrong, FLAG AS HIGH RISK.
       3. Obsolete Taxes: India uses GST. If a bill charges "VAT" and "Service Tax" instead of GST (especially multiple random VATs like 12.5% and 20%), this is HIGHLY SUSPICIOUS and indicates a potentially fake/old bill format used to overcharge. FLAG AS HIGH RISK.
-      4. Subtotal/Total Math: Do all the numbers physically sum up exactly to the final total amount?
+      4. Subtotal/Total Math: Do all the numbers physically sum up exactly to the final total amount? (CRITICAL NOTE: Rounding off the final amount by ₹1 to ₹5 is normal in India and MUST NOT be flagged as a mathematical anomaly. Ignore minor 1-5 Rs rounding differences).
       5. Invoice Details: Is the invoice number and date present and realistic?
       6. Tampering & Pricing: Are there unusual or exorbitant prices, or signs of tampering?
 

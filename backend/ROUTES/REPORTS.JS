@@ -28,11 +28,13 @@ async function analyzeRiskAsync(reportId, concern_type, description, filePath, m
       - Minor complaints (bad service, mild pricing issues): 0 to 20
       - Clear Fraud/Scams (fake GST, illegal taxes, intentional overcharging): 50 to 80
       - Severe Safety Threats / Harassment: 80 to 90
+      - NOTE: Rounding off a bill total by ₹1 to ₹5 is standard practice and MUST NOT be flagged as a fraud signal or mathematical error.
       
       Respond STRICTLY with a valid JSON object in this exact format:
       {
         "ai_risk_modifier": <number between 0 and 90 based on severity>,
-        "ai_reasoning": "<short 1-sentence explanation of why this score was given>"
+        "ai_signals": ["<signal 1>", "<signal 2>", ...],
+        "ai_reasoning": "<short 1-sentence explanation>"
       }
     `;
     
@@ -54,25 +56,27 @@ async function analyzeRiskAsync(reportId, concern_type, description, filePath, m
     try {
       parsed = JSON.parse(text);
     } catch (parseErr) {
-      // Fallback robust parsing if API ignores responseMimeType
       const jsonMatch = text.match(/\{[\s\S]*\}/);
-      parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : { ai_risk_modifier: 0, ai_reasoning: "AI analysis failed to parse." };
+      parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : { ai_risk_modifier: 0, ai_signals: [], ai_reasoning: "AI analysis failed to parse." };
     }
     
     const modifier = typeof parsed.ai_risk_modifier === 'number' ? parsed.ai_risk_modifier : 0;
+    const signals = Array.isArray(parsed.ai_signals) ? parsed.ai_signals : [];
     const reasoning = parsed.ai_reasoning || "AI analysis completed.";
+    
+    const aiJsonString = JSON.stringify({
+      modifier,
+      signals,
+      reasoning
+    });
     
     await pool.query(
       "UPDATE reports SET risk_score = risk_score + $1, reviewer_notes = $2 WHERE id = $3",
-      [modifier, `AI Insight: ${reasoning}`, reportId]
+      [modifier, `AI_JSON: ${aiJsonString}`, reportId]
     );
     console.log(`[AI Risk Engine] Updated report ${reportId} with modifier +${modifier}`);
   } catch (err) {
     console.error("[AI Risk Engine] Failed:", err.message);
-  } finally {
-    if (filePath && fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-    }
   }
 }
 
@@ -110,7 +114,13 @@ router.post("/", requireAuth, upload.single("evidence"), async (req, res) => {
       riskScore += 50;
     }
 
-    // 2. Insert Report & Sequentially Assign safely
+    if (req.file) {
+      // Build the URL to the uploaded file. Using relative path or API URL
+      mediaUrls.push(`/uploads/${req.file.filename}`);
+    }
+    
+    // 2. Assign to an inspector in that region (Round Robin)
+    // This enforces server-side Inspector Assignment
     const result = await pool.query(
       `WITH next_inspector AS (
          SELECT id FROM users 
@@ -122,9 +132,9 @@ router.post("/", requireAuth, upload.single("evidence"), async (req, res) => {
          LIMIT 1
        )
        INSERT INTO reports 
-        (user_id, concern_type, description, latitude, longitude, business_name, region, status, risk_score, business_id, assigned_to) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 'new', $8, $9, (SELECT id FROM next_inspector)) RETURNING *`,
-      [req.user.id, concern_type, description, latitude, longitude, business_name, region, riskScore, bId]
+        (user_id, concern_type, description, latitude, longitude, business_name, region, status, risk_score, business_id, assigned_to, media_urls) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'new', $8, $9, (SELECT id FROM next_inspector), $10) RETURNING *`,
+      [req.user.id, concern_type, description, latitude, longitude, business_name, region, riskScore, bId, JSON.stringify(mediaUrls)]
     );
 
     // 3. Optional: Create an Alert for inspectors in that region
