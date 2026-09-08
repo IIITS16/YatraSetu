@@ -134,7 +134,7 @@ router.post("/", requireAuth, upload.single("evidence"), async (req, res) => {
        INSERT INTO reports 
         (user_id, concern_type, description, latitude, longitude, business_name, region, status, risk_score, business_id, assigned_to, media_urls) 
        VALUES ($1, $2, $3, $4, $5, $6, $7, 'new', $8, $9, (SELECT id FROM next_inspector), $10) RETURNING *`,
-      [req.user.id, concern_type, description, latitude, longitude, business_name, region, riskScore, bId, JSON.stringify(mediaUrls)]
+      [req.user.id, concern_type, description, latitude, longitude, business_name, region, riskScore, bId, mediaUrls]
     );
 
     // 3. Optional: Create an Alert for inspectors in that region

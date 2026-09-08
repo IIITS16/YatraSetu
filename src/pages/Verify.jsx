@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   BadgeCheck,
   CheckCircle2,
@@ -29,6 +29,13 @@ L.Icon.Default.mergeOptions({
   iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
+
+// Three public Overpass mirrors — raced in parallel, first to respond wins
+const OVERPASS_MIRRORS = [
+  "https://overpass-api.de/api/interpreter",
+  "https://overpass.kumi.systems/api/interpreter",
+  "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
+];
 
 const categories = [
   { key: "all", label: "All", icon: BadgeCheck },
@@ -110,6 +117,9 @@ function VerifyContent() {
   const [qrScannerOpen, setQrScannerOpen] = useState(false);
   const [scanResult, setScanResult] = useState(null);
 
+  // 60-second session cache: avoids re-fetching if user hasn't moved
+  const nearMeCache = useRef({ key: null, data: null, ts: 0 });
+
   function ChangeView({ center }) {
     const map = useMap();
     if (center) {
@@ -118,121 +128,178 @@ function VerifyContent() {
     return null;
   }
 
-  function handleNearMe(isRefresh = false) {
-    if (nearMeActive && !isRefresh) {
-      setNearMeActive(false);
-      setUserLocation(null);
-      setViewMode("list");
-      setRealBusinesses([]);
+function handleNearMe(isRefresh = false) {
+  // Turn off Near Me
+  if (nearMeActive && !isRefresh) {
+    setNearMeActive(false);
+    setUserLocation(null);
+    setViewMode("list");
+    setRealBusinesses([]);
+    setLocationError("");
+    nearMeCache.current = { key: null, data: null, ts: 0 };
+    return;
+  }
+
+  setLocating(true);
+  setLoadingText("Finding your location...");
+  setLocationError("");
+
+  // Fetch nearby businesses using a multi-mirror race for speed
+  const fetchNearby = async (lat, lng) => {
+    setUserLocation({ lat, lng });
+
+    // Always fetch 25 km — range buttons filter client-side (instant, no re-fetch)
+    const FETCH_RADIUS = 25000;
+
+    // --- 60-second session cache (keyed on position only, not range) ---
+    const cacheKey = `${lat.toFixed(3)},${lng.toFixed(3)}`;
+    if (
+      nearMeCache.current.key === cacheKey &&
+      Date.now() - nearMeCache.current.ts < 60_000
+    ) {
+      setRealBusinesses(nearMeCache.current.data);
+      setNearMeActive(true);
+      setLocating(false);
+      setLoadingText("");
       return;
     }
 
-    setLocating(true);
-    setLoadingText("Finding your location...");
-    setLocationError("");
+    setLoadingText("Searching within 25 km...");
 
-    const fetchRestaurants = async (lat, lng) => {
-      setUserLocation({ lat, lng });
-      setLoadingText("Scanning nearby businesses...");
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
-        
-        // Fetch restaurants, cafes, hotels within 25km - simple query that works reliably
-        const query = `[out:json];(node["amenity"~"restaurant|cafe|fast_food"](around:25000,${lat},${lng});node["tourism"~"hotel|guest_house"](around:25000,${lat},${lng}););out body 200;`;
-        const res = await fetch("https://overpass-api.de/api/interpreter?data=" + encodeURIComponent(query), {
-          signal: controller.signal
-        });
-        clearTimeout(timeoutId);
-        
-        if (!res.ok) throw new Error("API Error");
-        
-        const data = await res.json();
-        const liveData = data.elements
-          .filter(e => e.tags && e.tags.name)
-          .map(e => {
-            let type = "Restaurant", category = "restaurant";
-            if (e.tags.tourism) { type = "Hotel"; category = "hotel"; }
-            if (e.tags.amenity === "cafe") { type = "Cafe"; category = "restaurant"; }
-            if (e.tags.amenity === "fast_food") { type = "Fast Food"; category = "restaurant"; }
-            return {
-              id: "YATRA-" + e.id,
-              name: e.tags.name,
-              type,
-              category,
-              lat: e.lat,
-              lng: e.lon,
-              place: e.tags["addr:street"] || e.tags["addr:city"] || "Local Area",
-              status: (e.id % 3 === 0) ? "Unverified" : "Verified",
-              color: (e.id % 3 === 0) ? "bg-rose-100 text-rose-600" : "bg-teal-100 text-teal-700"
-            };
-          });
-        setRealBusinesses(liveData);
-      } catch (err) {
-        console.error("Overpass API failed, retrying...", err);
-        // Retry once with simpler query
-        try {
-          const query2 = `[out:json];node["amenity"~"restaurant|cafe"](around:25000,${lat},${lng});out body 150;`;
-          const res2 = await fetch("https://overpass-api.de/api/interpreter?data=" + encodeURIComponent(query2));
-          const data2 = await res2.json();
-          const retryData = data2.elements
-            .filter(e => e.tags && e.tags.name)
-            .map(e => ({
-              id: "YATRA-" + e.id, name: e.tags.name,
-              type: e.tags.amenity === "cafe" ? "Cafe" : "Restaurant", category: "restaurant",
-              lat: e.lat, lng: e.lon,
-              place: e.tags["addr:street"] || e.tags["addr:city"] || "Local Area",
-              status: (e.id % 3 === 0) ? "Unverified" : "Verified",
-              color: (e.id % 3 === 0) ? "bg-rose-100 text-rose-600" : "bg-teal-100 text-teal-700"
-            }));
-          setRealBusinesses(retryData);
-        } catch (err2) {
-          console.error("Retry also failed:", err2);
-          setRealBusinesses([]);
-        }
-      } finally {
-        setNearMeActive(true);
-        setLocating(false);
-        setLoadingText("");
-      }
-    };
-
-    let locationFound = false;
-
-    // Fast Fallback: If 3 seconds pass and no GPS, use IP
-    const fallbackTimer = setTimeout(async () => {
-      if (!locationFound) {
-        setLoadingText("GPS slow, using IP location...");
-        try {
-          const res = await fetch('https://ipapi.co/json/');
-          const data = await res.json();
-          if (data.latitude && data.longitude) {
-            locationFound = true;
-            fetchRestaurants(data.latitude, data.longitude);
-          } else {
-            throw new Error("No IP loc");
-          }
-        } catch (e) {
-          locationFound = true;
-          fetchRestaurants(26.9124, 75.7873); // Ultimate fallback to Jaipur
-        }
-      }
-    }, 3000);
-
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          if (!locationFound) {
-            locationFound = true;
-            clearTimeout(fallbackTimer);
-            fetchRestaurants(pos.coords.latitude, pos.coords.longitude);
-          }
-        },
-        () => {}, 
-        { enableHighAccuracy: false, timeout: 3000, maximumAge: 0 }
+    // Expanded query: restaurants, cafes, fast food, bars,
+    //                 hotels, guest houses, hostels,
+    //                 selective shops (gift/souvenir/clothing/grocery),
+    //                 transport (taxi, car rental, bus station)
+    // [timeout:20] — gives Overpass server 20s to process before it self-cancels
+    const overpassQuery = `
+      [out:json][timeout:20];
+      (
+        node["amenity"~"restaurant|cafe|fast_food|bar"]
+        (around:${FETCH_RADIUS},${lat},${lng});
+        node["tourism"~"hotel|guest_house|hostel"]
+        (around:${FETCH_RADIUS},${lat},${lng});
+        node["shop"~"gift|souvenir|clothes|supermarket|convenience|mall|department_store"]
+        (around:${FETCH_RADIUS},${lat},${lng});
+        node["amenity"~"taxi|car_rental|bus_station"]
+        (around:${FETCH_RADIUS},${lat},${lng});
       );
+      out body 200;
+    `;
+
+    try {
+      // Race 3 mirrors — use whichever responds first
+      // AbortController at 25s — safely above the 20s server timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 25000);
+
+      const encodedQuery = encodeURIComponent(overpassQuery);
+      const mirrorRequests = OVERPASS_MIRRORS.map((mirror) =>
+        fetch(`${mirror}?data=${encodedQuery}`, { signal: controller.signal })
+          .then((r) => {
+            if (!r.ok) throw new Error(`Mirror ${mirror} returned ${r.status}`);
+            return r.json();
+          })
+      );
+
+      const data = await Promise.any(mirrorRequests);
+      clearTimeout(timeoutId);
+
+      // Map OSM elements to app business objects
+      const liveData = data.elements
+        .filter((e) => e.tags && e.tags.name)
+        .map((e) => {
+          let type = "Restaurant";
+          let category = "restaurant";
+
+          if (e.tags.tourism === "hotel") { type = "Hotel"; category = "hotel"; }
+          else if (e.tags.tourism === "guest_house") { type = "Guest House"; category = "hotel"; }
+          else if (e.tags.tourism === "hostel") { type = "Hostel"; category = "hotel"; }
+          else if (e.tags.amenity === "cafe") { type = "Cafe"; category = "restaurant"; }
+          else if (e.tags.amenity === "fast_food") { type = "Fast Food"; category = "restaurant"; }
+          else if (e.tags.amenity === "bar") { type = "Bar"; category = "restaurant"; }
+          else if (e.tags.amenity === "taxi") { type = "Taxi"; category = "transport"; }
+          else if (e.tags.amenity === "car_rental") { type = "Car Rental"; category = "transport"; }
+          else if (e.tags.amenity === "bus_station") { type = "Bus Station"; category = "transport"; }
+          else if (e.tags.shop) {
+            type = e.tags.shop.charAt(0).toUpperCase() + e.tags.shop.slice(1) + " Shop";
+            category = "shop";
+          }
+
+          return {
+            id: "YATRA-" + e.id,
+            name: e.tags.name,
+            type,
+            category,
+            lat: e.lat,
+            lng: e.lon,
+            place:
+              e.tags["addr:street"] ||
+              e.tags["addr:city"] ||
+              e.tags["addr:suburb"] ||
+              "Local Area",
+            // OSM data does NOT actually verify businesses.
+            status: "Unverified",
+            color: "bg-slate-100 text-slate-600",
+          };
+        });
+
+      // Save to 60-second cache
+      nearMeCache.current = { key: cacheKey, data: liveData, ts: Date.now() };
+      setRealBusinesses(liveData);
+
+    } catch (error) {
+      console.error("Nearby businesses error:", error);
+      if (error.name === "AbortError" || error instanceof AggregateError) {
+        setLocationError(
+          "Nearby search timed out. Please check your connection and try again."
+        );
+      } else {
+        setLocationError(
+          "Unable to load nearby businesses. Please check your internet connection and try again."
+        );
+      }
+      setRealBusinesses([]);
+    } finally {
+      setNearMeActive(true);
+      setLocating(false);
+      setLoadingText("");
     }
+  };
+
+  // Check browser geolocation support
+  if (!navigator.geolocation) {
+    setLocationError("Your browser does not support location services.");
+    setLocating(false);
+    setLoadingText("");
+    return;
   }
+
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      const { latitude, longitude } = position.coords;
+      fetchNearby(latitude, longitude);
+    },
+    (error) => {
+      console.error("Geolocation error:", error);
+      let message = "Unable to get your location.";
+      if (error.code === error.PERMISSION_DENIED) {
+        message = "Location permission was denied. Please allow location access and try again.";
+      } else if (error.code === error.POSITION_UNAVAILABLE) {
+        message = "Your location is currently unavailable. Please try again.";
+      } else if (error.code === error.TIMEOUT) {
+        message = "Location request timed out. Please try again.";
+      }
+      setLocationError(message);
+      setLocating(false);
+      setLoadingText("");
+    },
+    {
+      enableHighAccuracy: false,
+      timeout: 8000,
+      maximumAge: 300000, // Reuse cached GPS fix up to 5 mins old
+    }
+  );
+}
 
   // Initialize QR Scanner when modal opens
   useEffect(() => {
@@ -268,7 +335,7 @@ function VerifyContent() {
 
   // Build filtered + distance-annotated list
   let results = realBusinesses
-    .map((b) => {
+    .map((b) => { 
       const distance =
         userLocation && nearMeActive
           ? getDistanceKm(userLocation.lat, userLocation.lng, b.lat, b.lng)
@@ -301,6 +368,20 @@ function VerifyContent() {
 
   const verifiedCount = results.filter((b) => b.status === "Verified").length;
   const unverifiedCount = results.filter((b) => b.status === "Unverified").length;
+
+  // Count how many businesses fall within each range ring (for badge on buttons)
+  const countInRange = (km) =>
+    nearMeActive
+      ? realBusinesses.filter(
+          (b) => {
+            const dist = userLocation
+              ? getDistanceKm(userLocation.lat, userLocation.lng, b.lat, b.lng)
+              : null;
+            return dist !== null && !isNaN(dist) && dist <= km;
+          }
+        ).length
+      : 0;
+
 
   return (
     <div className="page-enter mx-auto max-w-3xl">
@@ -352,19 +433,36 @@ function VerifyContent() {
 
         {nearMeActive && (
           <div className="flex items-center gap-1.5">
-            {rangeOptions.map((opt) => (
-              <button
-                key={opt.km}
-                onClick={() => setRangeKm(opt.km)}
-                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-                  rangeKm === opt.km
-                    ? "bg-ink text-white"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
+            {rangeOptions.map((opt) => {
+              const count = countInRange(opt.km);
+              const isActive = rangeKm === opt.km;
+              return (
+                <button
+                  key={opt.km}
+                  onClick={() => setRangeKm(opt.km)}
+                  className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+                    isActive
+                      ? "bg-ink text-white"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  }`}
+                >
+                  {opt.label}
+                  {nearMeActive && !locating && (
+                    <span
+                      className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                        isActive
+                          ? "bg-white/20 text-white"
+                          : count > 0
+                          ? "bg-teal-100 text-teal-700"
+                          : "bg-slate-200 text-slate-400"
+                      }`}
+                    >
+                      {count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
         )}
       </div>
@@ -429,7 +527,26 @@ function VerifyContent() {
 
       {/* Results */}
       <div className="mt-4">
-        {viewMode === "map" && nearMeActive && userLocation ? (
+        {/* Skeleton loading state — shown while Near Me is fetching */}
+        {locating && (
+          <div className="space-y-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="rounded-2xl border bg-white p-5 shadow-sm animate-pulse">
+                <div className="flex gap-4">
+                  <div className="h-12 w-12 shrink-0 rounded-xl bg-slate-200" />
+                  <div className="flex-1 space-y-2 py-1">
+                    <div className="h-4 w-2/5 rounded bg-slate-200" />
+                    <div className="h-3 w-3/5 rounded bg-slate-100" />
+                    <div className="h-3 w-1/4 rounded bg-slate-100" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Map View */}
+        {!locating && viewMode === "map" && nearMeActive && userLocation && (
           <div className="h-[500px] w-full overflow-hidden rounded-2xl border bg-slate-100 shadow-sm relative z-0">
             <MapContainer center={[userLocation.lat, userLocation.lng]} zoom={13} style={{ height: "100%", width: "100%" }}>
               <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap" />
@@ -458,7 +575,10 @@ function VerifyContent() {
               ))}
             </MapContainer>
           </div>
-        ) : (
+        )}
+
+        {/* List View */}
+        {!locating && !(viewMode === "map" && nearMeActive && userLocation) && (
           <div className="space-y-3">
             {results.map((b) => (
               <article key={b.id} className="rounded-2xl border bg-white p-5 shadow-sm">

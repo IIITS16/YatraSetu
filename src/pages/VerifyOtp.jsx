@@ -12,6 +12,8 @@ export function VerifyOtp() {
   const role = state?.role || "tourist";
   const navigate = useNavigate();
   const { login } = useAuth();
+
+  
   // Prefill OTP from development login route to make testing easier
   const [otp, setOtp] = useState(state?.generatedOtp || "");
   const [loading, setLoading] = useState(false);
