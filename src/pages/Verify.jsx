@@ -14,7 +14,8 @@ import {
   Users,
   Car,
   X,
-} from "lucide-react";
+} 
+from "lucide-react";
 import { businesses } from "../data";
 import { Html5QrcodeScanner } from 'html5-qrcode';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
