@@ -65,7 +65,7 @@ export function ScanBill() {
             onClick={handleScan}
             className="mt-4 w-full rounded-xl bg-ink py-3 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {loading ? "Analyzing via Google Gemini Vision..." : "Analyze bill"}
+            {loading ? "Analyzing your Bill ..." : "Analyze bill"}
           </button>
         </>
       ) : (
