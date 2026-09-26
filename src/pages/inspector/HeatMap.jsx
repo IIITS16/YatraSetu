@@ -82,7 +82,7 @@ export function HeatMap() {
         const data = await res.json();
         if (data.success && Array.isArray(data.points)) {
           // Merge API data with Mock Data for a populated SIH Demo Map
-          setPoints([...JAIPUR_MOCK_HOTSPOTS, ...data.points]);
+          setPoints(data.points);
         }
       } catch (err) {
         console.error("Failed to fetch heatmap", err);
@@ -97,6 +97,11 @@ export function HeatMap() {
       return () => clearInterval(interval);
     }
   }, [token]);
+
+  const highRiskCount = points.filter(p => (p.risk_score || 0) >= 80).length;
+  const totalComplaints = points.length;
+  const unregisteredOps = points.filter(p => p.concern_type && p.concern_type.toLowerCase().includes("guide")).length;
+  const estLeakage = totalComplaints > 0 ? (totalComplaints * 0.05).toFixed(2) : "0.00";
 
   return (
     <div className="space-y-6">
@@ -117,28 +122,28 @@ export function HeatMap() {
           <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
             <p className="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-1">High Risk Areas</p>
             <div className="flex items-end gap-2">
-              <p className="text-2xl font-black text-rose-500">128</p>
+              <p className="text-2xl font-black text-rose-500">{highRiskCount}</p>
               <span className="text-emerald-400 text-xs font-bold mb-1">+12%</span>
             </div>
           </div>
           <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
             <p className="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-1">Complaints (7D)</p>
             <div className="flex items-end gap-2">
-              <p className="text-2xl font-black text-white">1,482</p>
+              <p className="text-2xl font-black text-white">{totalComplaints}</p>
               <span className="text-emerald-400 text-xs font-bold mb-1">+18%</span>
             </div>
           </div>
           <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
             <p className="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-1">Unregistered Ops</p>
             <div className="flex items-end gap-2">
-              <p className="text-2xl font-black text-amber-400">342</p>
+              <p className="text-2xl font-black text-amber-400">{unregisteredOps}</p>
               <span className="text-emerald-400 text-xs font-bold mb-1">+9%</span>
             </div>
           </div>
           <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
             <p className="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-1">Est. Leakage</p>
             <div className="flex items-end gap-2">
-              <p className="text-2xl font-black text-teal-400">₹2.48 Cr</p>
+              <p className="text-2xl font-black text-teal-400">₹{estLeakage} Cr</p>
             </div>
           </div>
         </div>
